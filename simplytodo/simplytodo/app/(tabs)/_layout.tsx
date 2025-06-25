@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, useColorScheme } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { TodoColors } from '@/constants/Colors';
 
 import { HapticTab } from '@/components/HapticTab';
 
@@ -11,7 +12,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#4caf50', // Green theme color
+        tabBarActiveTintColor: TodoColors.primary, // Theme color
         headerShown: false, // Hide the header
         tabBarButton: HapticTab,
       }}>

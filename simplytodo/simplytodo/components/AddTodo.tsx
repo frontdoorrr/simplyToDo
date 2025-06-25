@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   selectedImportanceText: {
-    color: 'white',
+    color: '#000000',
     fontWeight: 'bold',
   },
   addButton: {
