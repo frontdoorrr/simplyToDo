@@ -94,6 +94,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         style={[
           styles.container,
           { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
+          !completed && { borderLeftWidth: 9, borderLeftColor: getImportanceColor() },
           completed && styles.completedContainer,
         ]}>
         <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>

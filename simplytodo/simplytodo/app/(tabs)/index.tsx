@@ -79,7 +79,7 @@ export default function HomeScreen() {
         <AddTodo onAddTodo={handleAddTodo} />
         
         <TodoList
-          todos={todos}
+          todos={todos.filter(todo => !todo.completed)}
           onCompleteTodo={handleCompleteTodo}
           onDeleteTodo={handleDeleteTodo}
         />

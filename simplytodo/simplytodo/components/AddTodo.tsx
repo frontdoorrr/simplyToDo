@@ -36,24 +36,26 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
       
       <View style={styles.importanceContainer}>
         <Text style={styles.importanceLabel}>Priority:</Text>
-        <View style={styles.importanceLevels}>
-          {[1, 2, 3, 4, 5].map((level) => (
-            <TouchableOpacity
-              key={level}
-              style={[
-                styles.importanceButton,
-                importance === level && styles.selectedImportance,
-              ]}
-              onPress={() => handleImportanceChange(level)}>
-              <Text 
+        <View style={styles.importanceLevelsWrapper}>
+          <View style={styles.importanceLevels}>
+            {[1, 2, 3, 4, 5].map((level) => (
+              <TouchableOpacity
+                key={level}
                 style={[
-                  styles.importanceText,
-                  importance === level && styles.selectedImportanceText
-                ]}>
-                {level}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                  styles.importanceButton,
+                  importance === level && styles.selectedImportance,
+                ]}
+                onPress={() => handleImportanceChange(level)}>
+                <Text 
+                  style={[
+                    styles.importanceText,
+                    importance === level && styles.selectedImportanceText
+                  ]}>
+                  {level}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
       
@@ -85,24 +87,33 @@ const styles = StyleSheet.create({
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
   },
   importanceLabel: {
     fontSize: 14,
     marginRight: 10,
     color: '#555',
+    width: '20%',
+  },
+  importanceLevelsWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   importanceLevels: {
     flexDirection: 'row',
-    flex: 1,
+    justifyContent: 'center',
+    width: '100%',
   },
   importanceButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#e0e0e0',
-    marginHorizontal: 4,
+    marginHorizontal: 8,
   },
   selectedImportance: {
     backgroundColor: TodoColors.primary,

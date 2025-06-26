@@ -20,7 +20,14 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'To Do',
-          tabBarIcon: ({ color }) => <MaterialIcons name="check-circle" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="assignment" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="completed"
+        options={{
+          title: 'Completed',
+          tabBarIcon: ({ color }) => <MaterialIcons name="done-all" size={24} color={color} />,
         }}
       />
     </Tabs>
