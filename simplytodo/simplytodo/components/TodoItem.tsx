@@ -88,6 +88,11 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
   return (
     <Swipeable
+      friction={2}
+      rightThreshold={40}
+      leftThreshold={40}
+      overshootRight={false}
+      overshootLeft={false}
       renderRightActions={renderRightActions}
       renderLeftActions={renderLeftActions}>
       <View
