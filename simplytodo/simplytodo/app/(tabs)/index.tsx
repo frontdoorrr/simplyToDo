@@ -3,7 +3,8 @@ import { StyleSheet, SafeAreaView, View, Text, StatusBar, KeyboardAvoidingView, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AddTodo } from '@/components/AddTodo';
-import { TodoList, Todo } from '@/components/TodoList';
+import { TodoList } from '@/components/TodoList';
+import { Todo, createTodo } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
 
 export default function HomeScreen() {
@@ -40,13 +41,8 @@ export default function HomeScreen() {
 
   // Add a new todo
   const handleAddTodo = (text: string, importance: number) => {
-    const newTodo: Todo = {
-      id: Date.now().toString(),
-      text,
-      completed: false,
-      importance,
-    };
-
+    // createTodo 팩토리 함수 사용
+    const newTodo = createTodo(text, importance);
     setTodos([...todos, newTodo]);
   };
 
@@ -70,7 +66,7 @@ export default function HomeScreen() {
       
       <View style={styles.header}>
         <Text style={styles.title}>My Tasks</Text>
-        <MaterialIcons name="add" size={24} color={TodoColors.text.primary} style={styles.addIcon} />
+        
       </View>
       
       <KeyboardAvoidingView 
@@ -94,7 +90,8 @@ const styles = StyleSheet.create({
     backgroundColor: TodoColors.background.app,
   },
   header: {
-    padding: 16,
+    height: 60, // 고정 높이 설정
+    paddingHorizontal: 16,
     backgroundColor: TodoColors.background.card,
     flexDirection: 'row',
     justifyContent: 'space-between',

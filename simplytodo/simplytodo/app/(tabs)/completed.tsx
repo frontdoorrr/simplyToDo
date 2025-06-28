@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, SafeAreaView, View, Text, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TodoList, Todo } from '@/components/TodoList';
+import { TodoList } from '@/components/TodoList';
+import { Todo } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
 
 export default function CompletedScreen() {
@@ -92,7 +93,8 @@ const styles = StyleSheet.create({
     backgroundColor: TodoColors.background.app,
   },
   header: {
-    padding: 16,
+    height: 60, // 고정 높이 설정
+    paddingHorizontal: 16,
     backgroundColor: TodoColors.background.card,
     flexDirection: 'row',
     justifyContent: 'space-between',

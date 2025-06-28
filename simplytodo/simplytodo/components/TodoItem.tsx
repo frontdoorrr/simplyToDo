@@ -1,7 +1,8 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated as RNAnimated } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { MaterialIcons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated';
 import { TodoColors } from '@/constants/Colors';
 
 interface TodoItemProps {
@@ -21,6 +22,34 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   onComplete,
   onDelete,
 }) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const swipeableRef = useRef<Swipeable>(null);
+  
+  // 애니메이션 스타일
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+  
+  // 삭제 애니메이션
+  const animateAndDelete = (id: string) => {
+    scale.value = withTiming(0.8, { duration: 100 });
+    opacity.value = withTiming(0, { duration: 300 }, () => {
+      runOnJS(onDelete)(id);
+    });
+  };
+  
+  // 완료 애니메이션
+  const animateAndComplete = (id: string) => {
+    scale.value = withTiming(1.05, { duration: 100 }, () => {
+      scale.value = withTiming(1, { duration: 100 }, () => {
+        runOnJS(onComplete)(id);
+      });
+    });
+  };
   // Get color based on importance level (1-5)
   const getImportanceColor = () => {
     const baseColor = TodoColors.importance.baseColor;
@@ -37,7 +66,25 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   };
 
   // Render right actions (delete)
-  const renderRightActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+  // 애니메이션을 위한 공유 값 정의
+  const deleteScale = useSharedValue(1);
+  const completeScale = useSharedValue(1);
+  
+  // 애니메이션 스타일 정의
+  const deleteAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: deleteScale.value }],
+    };
+  });
+  
+  const completeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: completeScale.value }],
+    };
+  });
+  
+  const renderRightActions = (progress: any, dragX: any) => {
+    // React Native의 기본 Animated 사용
     const trans = dragX.interpolate({
       inputRange: [-100, 0],
       outputRange: [0, 100],
@@ -46,9 +93,15 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
     return (
       <TouchableOpacity
-        style={[styles.rightAction, { backgroundColor: TodoColors.delete }]}
-        onPress={() => onDelete(id)}>
-        <Animated.View
+        onPress={() => {
+          deleteScale.value = withSpring(1.2, {}, () => {
+            deleteScale.value = withSpring(1, {}, () => {
+              runOnJS(animateAndDelete)(id);
+            });
+          });
+        }}
+        style={[styles.rightAction, { backgroundColor: TodoColors.delete }]}>
+        <RNAnimated.View
           style={[
             styles.actionIcon,
             {
@@ -56,13 +109,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             },
           ]}>
           <MaterialIcons name="delete" size={24} color="white" />
-        </Animated.View>
+        </RNAnimated.View>
       </TouchableOpacity>
     );
   };
 
   // Render left actions (complete)
-  const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+  const renderLeftActions = (progress: any, dragX: any) => {
+    // React Native의 기본 Animated 사용
     const trans = dragX.interpolate({
       inputRange: [0, 100],
       outputRange: [-100, 0],
@@ -71,9 +125,18 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
     return (
       <TouchableOpacity
-        style={[styles.leftAction, { backgroundColor: TodoColors.complete }]}
-        onPress={() => onComplete(id)}>
-        <Animated.View
+        onPress={() => {
+          completeScale.value = withSpring(1.2, {}, () => {
+            completeScale.value = withSpring(1, {}, () => {
+              runOnJS(animateAndComplete)(id);
+              if (swipeableRef.current) {
+                swipeableRef.current.close();
+              }
+            });
+          });
+        }}
+        style={[styles.leftAction, { backgroundColor: TodoColors.complete }]}>
+        <RNAnimated.View
           style={[
             styles.actionIcon,
             {
@@ -81,13 +144,19 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             },
           ]}>
           <MaterialIcons name="check" size={24} color="white" />
-        </Animated.View>
+        </RNAnimated.View>
       </TouchableOpacity>
     );
   };
 
+  // 컴포넌트가 마운트될 때 애니메이션 효과
+  useEffect(() => {
+    scale.value = withSpring(1, { damping: 10, stiffness: 100 });
+  }, []);
+
   return (
     <Swipeable
+      ref={swipeableRef}
       friction={2}
       rightThreshold={40}
       leftThreshold={40}
@@ -95,18 +164,19 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       overshootLeft={false}
       renderRightActions={renderRightActions}
       renderLeftActions={renderLeftActions}>
-      <View
+      <Animated.View
         style={[
           styles.container,
           { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
           !completed && { borderLeftWidth: 9, borderLeftColor: getImportanceColor() },
           completed && styles.completedContainer,
+          animatedStyle,
         ]}>
         <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
         {completed && (
           <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
         )}
-      </View>
+      </Animated.View>
     </Swipeable>
   );
 };
@@ -142,17 +212,15 @@ const styles = StyleSheet.create({
   rightAction: {
     justifyContent: 'center',
     alignItems: 'flex-end',
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-    marginVertical: 8,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
     flex: 1,
   },
   leftAction: {
     justifyContent: 'center',
     alignItems: 'flex-start',
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-    marginVertical: 8,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
     flex: 1,
   },
   actionIcon: {

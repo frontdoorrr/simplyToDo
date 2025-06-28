@@ -1,14 +1,9 @@
-import React from 'react';
-import { StyleSheet, FlatList, View, Text } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, View, Text, ViewToken } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { TodoItem } from './TodoItem';
 import { TodoColors } from '@/constants/Colors';
-
-export interface Todo {
-  id: string;
-  text: string;
-  completed: boolean;
-  importance: number; // 1-5
-}
+import { Todo } from '@/types/Todo';
 
 interface TodoListProps {
   todos: Todo[];
@@ -30,20 +25,27 @@ export const TodoList: React.FC<TodoListProps> = ({
   }
 
   return (
-    <FlatList
+    <Animated.FlatList
       data={todos}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <TodoItem
-          id={item.id}
-          text={item.text}
-          completed={item.completed}
-          importance={item.importance}
-          onComplete={onCompleteTodo}
-          onDelete={onDeleteTodo}
-        />
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(300)}
+          layout={Layout.springify()}
+        >
+          <TodoItem
+            id={item.id}
+            text={item.text}
+            completed={item.completed}
+            importance={item.importance}
+            onComplete={onCompleteTodo}
+            onDelete={onDeleteTodo}
+          />
+        </Animated.View>
       )}
       style={styles.list}
+      itemLayoutAnimation={Layout.springify()}
     />
   );
 };
