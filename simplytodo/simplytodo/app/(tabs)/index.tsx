@@ -40,9 +40,9 @@ export default function HomeScreen() {
   }, [todos]);
 
   // Add a new todo
-  const handleAddTodo = (text: string, importance: number) => {
+  const handleAddTodo = (text: string, importance: number, dueDate: number | null) => {
     // createTodo 팩토리 함수 사용
-    const newTodo = createTodo(text, importance);
+    const newTodo = createTodo(text, importance, dueDate);
     setTodos([...todos, newTodo]);
   };
 

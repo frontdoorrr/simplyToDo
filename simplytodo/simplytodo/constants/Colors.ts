@@ -40,6 +40,7 @@ export const TodoColors = {
     primary: '#333333',        // 기본 텍스트 (진한 회색)
     secondary: '#666666',      // 보조 텍스트 (중간 회색)
     light: '#ffffff',          // 밝은 텍스트 (흰색)
+    dark: '#333333',           // 어두운 텍스트 (진한 회색)
   },
   
   // 버튼 색상

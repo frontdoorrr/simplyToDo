@@ -10,6 +10,7 @@ interface TodoItemProps {
   text: string;
   completed: boolean;
   importance: number; // 1-5 importance level
+  dueDate: number | null; // 마감일 추가
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -19,6 +20,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   text,
   completed,
   importance,
+  dueDate,
   onComplete,
   onDelete,
 }) => {
@@ -63,6 +65,60 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     const b = Math.round(baseColor[2] + factor * (darkColor[2] - baseColor[2]));
     
     return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  // 중요도에 따른 왼쪽 테두리 색상 계산
+  const getBorderColor = (importance: number) => {
+    // 중요도에 따라 RGB 값을 선형 보간
+    const baseRGB = TodoColors.importance.baseColor;
+    const darkRGB = TodoColors.importance.darkColor;
+    
+    // 중요도에 따라 색상 계산 (1은 가장 연한 색, 5는 가장 진한 색)
+    const ratio = (importance - 1) / 4; // 0~1 값으로 변환
+    
+    const r = Math.round(baseRGB[0] + (darkRGB[0] - baseRGB[0]) * ratio);
+    const g = Math.round(baseRGB[1] + (darkRGB[1] - baseRGB[1]) * ratio);
+    const b = Math.round(baseRGB[2] + (darkRGB[2] - baseRGB[2]) * ratio);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  
+  // 마감일 형식화
+  const formatDueDate = (timestamp: number | null): string => {
+    if (!timestamp) return '';
+    
+    const dueDate = new Date(timestamp);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // 날짜 비교를 위해 시간 부분을 제거
+    const isDueToday = dueDate.setHours(0, 0, 0, 0) === today.setHours(0, 0, 0, 0);
+    const isDueTomorrow = dueDate.setHours(0, 0, 0, 0) === tomorrow.setHours(0, 0, 0, 0);
+    
+    if (isDueToday) {
+      return '오늘 마감';
+    } else if (isDueTomorrow) {
+      return '내일 마감';
+    } else {
+      return dueDate.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) + ' 마감';
+    }
+  };
+  
+  // 마감일 상태 확인 (마감 임박, 마감 지남)
+  const getDueDateStatus = (): { isOverdue: boolean; isUpcoming: boolean } => {
+    if (!dueDate) return { isOverdue: false, isUpcoming: false };
+    
+    const now = new Date().getTime();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    
+    // 마감 지남
+    const isOverdue = dueDate < now;
+    
+    // 마감 임박 (24시간 이내)
+    const isUpcoming = !isOverdue && (dueDate - now) < oneDayInMs;
+    
+    return { isOverdue, isUpcoming };
   };
 
   // Render right actions (delete)
@@ -168,11 +224,36 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         style={[
           styles.container,
           { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
-          !completed && { borderLeftWidth: 9, borderLeftColor: getImportanceColor() },
+          !completed && { borderLeftWidth: 9, borderLeftColor: getBorderColor(importance) },
           completed && styles.completedContainer,
           animatedStyle,
         ]}>
-        <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
+        <View style={styles.contentContainer}>
+          <Text 
+            style={[
+              styles.text, 
+              completed && styles.completedText
+            ]}
+            numberOfLines={2}
+          >
+            {text}
+          </Text>
+          
+          {dueDate && (
+            <View style={styles.dueDateContainer}>
+              <Text 
+                style={[
+                  styles.dueDate,
+                  getDueDateStatus().isOverdue && styles.overdueDueDate,
+                  getDueDateStatus().isUpcoming && styles.upcomingDueDate,
+                  completed && styles.completedDueDate
+                ]}
+              >
+                {formatDueDate(dueDate)}
+              </Text>
+            </View>
+          )}
+        </View>
         {completed && (
           <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
         )}
@@ -183,15 +264,39 @@ export const TodoItem: React.FC<TodoItemProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    borderRadius: 0,
-    marginVertical: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  dueDateContainer: {
+    marginTop: 4,
+  },
+  dueDate: {
+    fontSize: 12,
+    color: TodoColors.text.secondary,
+  },
+  overdueDueDate: {
+    color: '#ff6b6b',
+    fontWeight: '500',
+  },
+  upcomingDueDate: {
+    color: '#ff9f43',
+    fontWeight: '500',
+  },
+  completedDueDate: {
+    textDecorationLine: 'line-through',
+    opacity: 0.6,
   },
   text: {
     fontSize: 16,

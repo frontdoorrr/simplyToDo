@@ -39,6 +39,7 @@ export const TodoList: React.FC<TodoListProps> = ({
             text={item.text}
             completed={item.completed}
             importance={item.importance}
+            dueDate={item.dueDate}
             onComplete={onCompleteTodo}
             onDelete={onDeleteTodo}
           />

@@ -1,21 +1,46 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, TextInput, View, TouchableOpacity, Text, Platform, Modal, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TodoColors } from '@/constants/Colors';
 
 interface AddTodoProps {
-  onAddTodo: (text: string, importance: number) => void;
+  onAddTodo: (text: string, importance: number, dueDate: number | null) => void;
 }
 
 export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
   const [text, setText] = useState('');
   const [importance, setImportance] = useState(3); // Default importance level (1-5)
+  const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
 
   const handleAddTodo = () => {
     if (text.trim()) {
-      onAddTodo(text.trim(), importance);
+      onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null);
       setText('');
+      setDueDate(null);
     }
+  };
+  
+  const selectDate = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    setDueDate(date);
+    setShowDateModal(false);
+  };
+  
+  const clearDueDate = () => {
+    setDueDate(null);
+    setShowDateModal(false);
+  };
+  
+  const formatDate = (date: Date | null): string => {
+    if (!date) return '마감일 없음';
+    return date.toLocaleDateString('ko-KR', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      weekday: 'short'
+    });
   };
 
   const handleImportanceChange = (level: number) => {
@@ -60,6 +85,56 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
       </View>
       
       <TouchableOpacity 
+        style={styles.dueDateButton}
+        onPress={() => setShowDateModal(true)}>
+        <MaterialIcons name="event" size={18} color={TodoColors.text.dark} />
+        <Text style={styles.dueDateText}>
+          {dueDate ? formatDate(dueDate) : '마감일 설정'}
+        </Text>
+      </TouchableOpacity>
+      
+      <Modal
+        visible={showDateModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowDateModal(false)}
+        >
+          <View style={styles.datePickerContainer} onStartShouldSetResponder={() => true}>
+            <Text style={styles.datePickerTitle}>마감일 선택</Text>
+            
+            <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(0)}>
+              <Text style={styles.dateOptionText}>오늘</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(1)}>
+              <Text style={styles.dateOptionText}>내일</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(7)}>
+              <Text style={styles.dateOptionText}>다음 주</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(30)}>
+              <Text style={styles.dateOptionText}>한 달 후</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[styles.dateOption, styles.clearOption]} onPress={clearDueDate}>
+              <Text style={styles.clearOptionText}>마감일 없음</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowDateModal(false)}>
+              <Text style={styles.closeButtonText}>닫기</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+      
+      <TouchableOpacity 
         style={styles.addButton} 
         onPress={handleAddTodo}
         disabled={!text.trim()}>
@@ -74,6 +149,67 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: TodoColors.background.app,
     marginBottom: 8,
+  },
+  dueDateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  dueDateText: {
+    marginLeft: 8,
+    color: TodoColors.text.dark,
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    width: '80%',
+    maxWidth: 300,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: TodoColors.text.primary,
+  },
+  dateOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dateOptionText: {
+    fontSize: 16,
+    color: TodoColors.text.primary,
+  },
+  clearOption: {
+    marginTop: 8,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 4,
+  },
+  clearOptionText: {
+    color: '#ff6b6b',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  closeButton: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: TodoColors.primary,
+    borderRadius: 4,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   input: {
     backgroundColor: TodoColors.background.input,
@@ -131,6 +267,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
 });
