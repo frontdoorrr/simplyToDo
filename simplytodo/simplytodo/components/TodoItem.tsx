@@ -4,6 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { MaterialIcons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated';
 import { TodoColors } from '@/constants/Colors';
+import { Category } from '@/types/Todo';
 
 interface TodoItemProps {
   id: string;
@@ -11,6 +12,7 @@ interface TodoItemProps {
   completed: boolean;
   importance: number; // 1-5 importance level
   dueDate: number | null; // 마감일 추가
+  category?: Category; // 카테고리 추가
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -21,6 +23,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   completed,
   importance,
   dueDate,
+  category,
   onComplete,
   onDelete,
 }) => {
@@ -83,26 +86,44 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     return `rgb(${r}, ${g}, ${b})`;
   };
   
-  // 마감일 형식화
-  const formatDueDate = (timestamp: number | null): string => {
-    if (!timestamp) return '';
+  // 마감일 표시 형식 처리
+  const formatDueDate = () => {
+    if (!dueDate) return null;
     
-    const dueDate = new Date(timestamp);
-    const today = new Date();
+    const now = new Date();
+    const due = new Date(dueDate);
+    
+    // 날짜만 비교하기 위해 시간 부분을 0으로 설정
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
     
-    // 날짜 비교를 위해 시간 부분을 제거
-    const isDueToday = dueDate.setHours(0, 0, 0, 0) === today.setHours(0, 0, 0, 0);
-    const isDueTomorrow = dueDate.setHours(0, 0, 0, 0) === tomorrow.setHours(0, 0, 0, 0);
+    // 마감일 상태 확인 (지남, 오늘, 내일)
+    const isPast = dueDay < today;
+    const isToday = dueDay.getTime() === today.getTime();
+    const isTomorrow = dueDay.getTime() === tomorrow.getTime();
     
-    if (isDueToday) {
-      return '오늘 마감';
-    } else if (isDueTomorrow) {
-      return '내일 마감';
+    // 마감 임박 (오늘 마감이거나 지난 마감)
+    const isUrgent = isToday || isPast;
+    
+    // 마감일 텍스트 표시
+    let dueDateText = '';
+    if (isToday) {
+      dueDateText = '오늘 마감';
+    } else if (isTomorrow) {
+      dueDateText = '내일 마감';
     } else {
-      return dueDate.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) + ' 마감';
+      // 일반 날짜 형식
+      dueDateText = `${due.getMonth() + 1}월 ${due.getDate()}일 마감`;
     }
+    
+    return {
+      text: dueDateText,
+      isPast,
+      isToday,
+      isUrgent
+    };
   };
   
   // 마감일 상태 확인 (마감 임박, 마감 지남)
@@ -210,6 +231,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     scale.value = withSpring(1, { damping: 10, stiffness: 100 });
   }, []);
 
+  const formattedDueDate = formatDueDate();
+
   return (
     <Swipeable
       ref={swipeableRef}
@@ -229,30 +252,33 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           animatedStyle,
         ]}>
         <View style={styles.contentContainer}>
-          <Text 
-            style={[
-              styles.text, 
-              completed && styles.completedText
-            ]}
-            numberOfLines={2}
-          >
-            {text}
-          </Text>
+          <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
           
-          {dueDate && (
-            <View style={styles.dueDateContainer}>
+          <View style={styles.metaContainer}>
+            {/* 카테고리 표시 */}
+            {category && (
+              <View style={[styles.categoryTag, { backgroundColor: category.color + '20', borderColor: category.color }]}>
+                <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+                <Text style={[styles.categoryText, { color: category.color }]}>
+                  {category.name}
+                </Text>
+              </View>
+            )}
+            
+            {/* 마감일 표시 */}
+            {dueDate && formattedDueDate && (
               <Text 
                 style={[
-                  styles.dueDate,
-                  getDueDateStatus().isOverdue && styles.overdueDueDate,
-                  getDueDateStatus().isUpcoming && styles.upcomingDueDate,
+                  styles.dueDate, 
+                  formattedDueDate.isPast && styles.pastDueDate,
+                  formattedDueDate.isToday && styles.todayDueDate,
                   completed && styles.completedDueDate
                 ]}
               >
-                {formatDueDate(dueDate)}
+                {formattedDueDate.text}
               </Text>
-            </View>
-          )}
+            )}
+          </View>
         </View>
         {completed && (
           <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
@@ -279,20 +305,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
-  dueDateContainer: {
+  metaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     marginTop: 4,
+  },
+  categoryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  categoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   dueDate: {
     fontSize: 12,
     color: TodoColors.text.secondary,
   },
-  overdueDueDate: {
-    color: '#ff6b6b',
-    fontWeight: '500',
+  pastDueDate: {
+    color: TodoColors.danger,
   },
-  upcomingDueDate: {
-    color: '#ff9f43',
-    fontWeight: '500',
+  todayDueDate: {
+    color: TodoColors.warning,
   },
   completedDueDate: {
     textDecorationLine: 'line-through',

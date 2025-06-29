@@ -3,16 +3,18 @@ import { StyleSheet, View, Text, ViewToken } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { TodoItem } from './TodoItem';
 import { TodoColors } from '@/constants/Colors';
-import { Todo } from '@/types/Todo';
+import { Todo, Category, findCategoryById } from '@/types/Todo';
 
 interface TodoListProps {
   todos: Todo[];
+  categories: Category[];
   onCompleteTodo: (id: string) => void;
   onDeleteTodo: (id: string) => void;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({ 
   todos, 
+  categories,
   onCompleteTodo, 
   onDeleteTodo 
 }) => {
@@ -40,6 +42,7 @@ export const TodoList: React.FC<TodoListProps> = ({
             completed={item.completed}
             importance={item.importance}
             dueDate={item.dueDate}
+            category={findCategoryById(categories, item.categoryId)}
             onComplete={onCompleteTodo}
             onDelete={onDeleteTodo}
           />

@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { StyleSheet, TextInput, View, TouchableOpacity, Text, Platform, Modal, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TodoColors } from '@/constants/Colors';
+import { CategoryManager } from './CategoryManager';
 
 interface AddTodoProps {
-  onAddTodo: (text: string, importance: number, dueDate: number | null) => void;
+  onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
 }
 
 export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
@@ -12,12 +13,14 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
   const [importance, setImportance] = useState(3); // Default importance level (1-5)
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const handleAddTodo = () => {
     if (text.trim()) {
-      onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null);
+      onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
       setText('');
       setDueDate(null);
+      setSelectedCategoryId(null);
     }
   };
   
@@ -83,6 +86,11 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
           </View>
         </View>
       </View>
+      
+      <CategoryManager
+        onCategorySelect={setSelectedCategoryId}
+        selectedCategoryId={selectedCategoryId}
+      />
       
       <TouchableOpacity 
         style={styles.dueDateButton}
