@@ -43,18 +43,19 @@ export interface Todo {
 // 할 일 생성을 위한 팩토리 함수
 export const createTodo = (
   text: string, 
-  importance: number, 
   dueDate: number | null = null,
+  importance: number, 
   categoryId: string | null = null
 ): Todo => {
+  const now = Date.now();
   return {
-    id: Date.now().toString(),
+    id: now.toString(),
     text,
     completed: false,
     importance,
-    createdAt: Date.now(),
+    createdAt: now,
     dueDate,
-    categoryId,
+    categoryId: categoryId || 'default',  // null 대신 기본값 제공
   };
 };
 
@@ -68,7 +69,7 @@ export const createCategory = (name: string, color: string): Category => {
 };
 
 // 카테고리 ID로 카테고리 찾기
-export const findCategoryById = (categories: Category[], id: string | null): Category | undefined => {
-  if (!id) return undefined;
+export const findCategoryById = (categories: Category[] | undefined, id: string | null): Category | undefined => {
+  if (!id || !categories || !Array.isArray(categories)) return undefined;
   return categories.find(category => category.id === id);
 };

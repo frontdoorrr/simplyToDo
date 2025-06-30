@@ -1,10 +1,11 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated as RNAnimated } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { MaterialIcons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated';
 import { TodoColors } from '@/constants/Colors';
-import { Category } from '@/types/Todo';
+import { Category, DefaultCategories } from '@/types/Todo';
+import { categoriesApi } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TodoItemProps {
   id: string;
@@ -12,7 +13,8 @@ interface TodoItemProps {
   completed: boolean;
   importance: number; // 1-5 importance level
   dueDate: number | null; // 마감일 추가
-  category?: Category; // 카테고리 추가
+  categoryId?: string | null; // 카테고리 ID 사용
+  category?: Category; // 직접 카테고리 객체를 전달받는 경우 (옵셔널)
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -23,37 +25,83 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   completed,
   importance,
   dueDate,
+  categoryId,
   category,
   onComplete,
   onDelete,
 }) => {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
   const swipeableRef = useRef<Swipeable>(null);
+  const [resolvedCategory, setResolvedCategory] = useState<Category | undefined>(category);
   
-  // 애니메이션 스타일
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-      opacity: opacity.value,
-    };
-  });
+  const { user } = useAuth();
   
-  // 삭제 애니메이션
-  const animateAndDelete = (id: string) => {
-    scale.value = withTiming(0.8, { duration: 100 });
-    opacity.value = withTiming(0, { duration: 300 }, () => {
-      runOnJS(onDelete)(id);
-    });
+  // CategoryId를 사용해서 카테고리를 로드하는 기능
+  useEffect(() => {
+    // 이미 category 객체가 전달되었으면 그것을 사용
+    if (category) {
+      setResolvedCategory(category);
+      return;
+    }
+    
+    // categoryId가 있으면 해당 ID로 카테고리 찾기
+    if (categoryId && user) {
+      const loadCategory = async () => {
+        try {
+          // Supabase에서 모든 카테고리 가져오기
+          const categories = await categoriesApi.getCategories(user.id);
+          
+          // 형식 변환
+          const formattedCategories = categories.map(category => ({
+            id: category.id,
+            name: category.name,
+            color: category.color
+          }));
+          
+          // 해당 ID 찾기
+          const found = formattedCategories.find(c => c.id === categoryId);
+          setResolvedCategory(found || undefined);
+          
+          // 찾지 못한 경우 기본 카테고리에서 찾기
+          if (!found) {
+            const defaultCategory = DefaultCategories.find(c => c.id === categoryId);
+            setResolvedCategory(defaultCategory || undefined);
+          }
+        } catch (error) {
+          console.error('카테고리 로드 오류:', error);
+          
+          // 실패 시 기본 카테고리에서 찾기
+          const defaultCategory = DefaultCategories.find(c => c.id === categoryId);
+          setResolvedCategory(defaultCategory || undefined);
+        }
+      };
+      
+      loadCategory();
+    } else {
+      setResolvedCategory(undefined);
+    }
+  }, [categoryId, category, user]);
+  
+  // 완료 처리 함수
+  const handleComplete = () => {
+    try {
+      onComplete(id);
+    } catch (error) {
+      console.error('할 일 완료 처리 오류:', error);
+      Alert.alert('오류', '할 일 상태를 변경하는데 실패했습니다.');
+    }
   };
   
-  // 완료 애니메이션
-  const animateAndComplete = (id: string) => {
-    scale.value = withTiming(1.05, { duration: 100 }, () => {
-      scale.value = withTiming(1, { duration: 100 }, () => {
-        runOnJS(onComplete)(id);
-      });
-    });
+  // 삭제 처리 함수
+  const handleDelete = () => {
+    try {
+      if (swipeableRef.current) {
+        swipeableRef.current.close();
+      }
+      onDelete(id);
+    } catch (error) {
+      console.error('할 일 삭제 오류:', error);
+      Alert.alert('오류', '할 일을 삭제하는데 실패했습니다.');
+    }
   };
   // Get color based on importance level (1-5)
   const getImportanceColor = () => {
@@ -86,23 +134,24 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     return `rgb(${r}, ${g}, ${b})`;
   };
   
-  // 마감일 표시 형식 처리
+  // 마감일 표시 형식 처리 - 메모리 사용량 최소화
   const formatDueDate = () => {
     if (!dueDate) return null;
     
+    // 현재 날짜와 마감일의 시간부분을 0으로 만들기 위한 계산
     const now = new Date();
-    const due = new Date(dueDate);
+    const nowMs = now.getTime();
+    const todayMs = nowMs - (now.getHours() * 3600000 + now.getMinutes() * 60000 + now.getSeconds() * 1000 + now.getMilliseconds());
+    const tomorrowMs = todayMs + 86400000; // 24시간을 밀리초로 계산
     
-    // 날짜만 비교하기 위해 시간 부분을 0으로 설정
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    // 마감일의 시간부분을 0으로 만들기 위한 계산
+    const due = new Date(dueDate);
+    const dueDayMs = dueDate - (due.getHours() * 3600000 + due.getMinutes() * 60000 + due.getSeconds() * 1000 + due.getMilliseconds());
     
     // 마감일 상태 확인 (지남, 오늘, 내일)
-    const isPast = dueDay < today;
-    const isToday = dueDay.getTime() === today.getTime();
-    const isTomorrow = dueDay.getTime() === tomorrow.getTime();
+    const isPast = dueDayMs < todayMs;
+    const isToday = dueDayMs === todayMs;
+    const isTomorrow = dueDayMs === tomorrowMs;
     
     // 마감 임박 (오늘 마감이거나 지난 마감)
     const isUrgent = isToday || isPast;
@@ -143,93 +192,28 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   };
 
   // Render right actions (delete)
-  // 애니메이션을 위한 공유 값 정의
-  const deleteScale = useSharedValue(1);
-  const completeScale = useSharedValue(1);
-  
-  // 애니메이션 스타일 정의
-  const deleteAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: deleteScale.value }],
-    };
-  });
-  
-  const completeAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: completeScale.value }],
-    };
-  });
-  
-  const renderRightActions = (progress: any, dragX: any) => {
-    // React Native의 기본 Animated 사용
-    const trans = dragX.interpolate({
-      inputRange: [-100, 0],
-      outputRange: [0, 100],
-      extrapolate: 'clamp',
-    });
-
+  const renderRightActions = () => {
     return (
-      <TouchableOpacity
-        onPress={() => {
-          deleteScale.value = withSpring(1.2, {}, () => {
-            deleteScale.value = withSpring(1, {}, () => {
-              runOnJS(animateAndDelete)(id);
-            });
-          });
-        }}
-        style={[styles.rightAction, { backgroundColor: TodoColors.delete }]}>
-        <RNAnimated.View
-          style={[
-            styles.actionIcon,
-            {
-              transform: [{ translateX: trans }],
-            },
-          ]}>
-          <MaterialIcons name="delete" size={24} color="white" />
-        </RNAnimated.View>
+      <TouchableOpacity 
+        style={[styles.actionButton, { backgroundColor: TodoColors.delete }]} 
+        onPress={handleDelete}
+      >
+        <MaterialIcons name="delete" size={24} color="white" />
       </TouchableOpacity>
     );
   };
 
   // Render left actions (complete)
-  const renderLeftActions = (progress: any, dragX: any) => {
-    // React Native의 기본 Animated 사용
-    const trans = dragX.interpolate({
-      inputRange: [0, 100],
-      outputRange: [-100, 0],
-      extrapolate: 'clamp',
-    });
-
+  const renderLeftActions = () => {
     return (
-      <TouchableOpacity
-        onPress={() => {
-          completeScale.value = withSpring(1.2, {}, () => {
-            completeScale.value = withSpring(1, {}, () => {
-              runOnJS(animateAndComplete)(id);
-              if (swipeableRef.current) {
-                swipeableRef.current.close();
-              }
-            });
-          });
-        }}
-        style={[styles.leftAction, { backgroundColor: TodoColors.complete }]}>
-        <RNAnimated.View
-          style={[
-            styles.actionIcon,
-            {
-              transform: [{ translateX: trans }],
-            },
-          ]}>
-          <MaterialIcons name="check" size={24} color="white" />
-        </RNAnimated.View>
+      <TouchableOpacity 
+        style={[styles.actionButton, { backgroundColor: TodoColors.complete }]} 
+        onPress={handleComplete}
+      >
+        <MaterialIcons name="check" size={24} color="white" />
       </TouchableOpacity>
     );
   };
-
-  // 컴포넌트가 마운트될 때 애니메이션 효과
-  useEffect(() => {
-    scale.value = withSpring(1, { damping: 10, stiffness: 100 });
-  }, []);
 
   const formattedDueDate = formatDueDate();
 
@@ -243,24 +227,23 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       overshootLeft={false}
       renderRightActions={renderRightActions}
       renderLeftActions={renderLeftActions}>
-      <Animated.View
+      <View
         style={[
           styles.container,
           { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
           !completed && { borderLeftWidth: 9, borderLeftColor: getBorderColor(importance) },
           completed && styles.completedContainer,
-          animatedStyle,
         ]}>
         <View style={styles.contentContainer}>
           <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
           
           <View style={styles.metaContainer}>
             {/* 카테고리 표시 */}
-            {category && (
-              <View style={[styles.categoryTag, { backgroundColor: category.color + '20', borderColor: category.color }]}>
-                <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
-                <Text style={[styles.categoryText, { color: category.color }]}>
-                  {category.name}
+            {resolvedCategory && (
+              <View style={[styles.categoryTag, { backgroundColor: resolvedCategory.color + '20', borderColor: resolvedCategory.color }]}>
+                <View style={[styles.categoryDot, { backgroundColor: resolvedCategory.color }]} />
+                <Text style={[styles.categoryText, { color: resolvedCategory.color }]}>
+                  {resolvedCategory.name}
                 </Text>
               </View>
             )}
@@ -283,7 +266,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         {completed && (
           <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
         )}
-      </Animated.View>
+      </View>
     </Swipeable>
   );
 };
@@ -335,10 +318,10 @@ const styles = StyleSheet.create({
     color: TodoColors.text.secondary,
   },
   pastDueDate: {
-    color: TodoColors.danger,
+    color: '#ff6b6b', // 지난 마감일은 빨간색으로 표시
   },
   todayDueDate: {
-    color: TodoColors.warning,
+    color: '#ff9800', // 오늘 마감일은 주황색으로 표시
   },
   completedDueDate: {
     textDecorationLine: 'line-through',
@@ -360,23 +343,10 @@ const styles = StyleSheet.create({
   checkIcon: {
     marginLeft: 8,
   },
-  rightAction: {
+  actionButton: {
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    flex: 1,
-  },
-  leftAction: {
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    flex: 1,
-  },
-  actionIcon: {
-    width: 30,
-    marginHorizontal: 16,
     alignItems: 'center',
+    width: 70,
+    height: '100%',
   },
 });
