@@ -58,13 +58,11 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // iOS용 고급 fetch 래퍼 함수
 const customFetch = async (url: RequestInfo | URL, options: RequestInit = {}) => {
   let urlString = typeof url === 'string' ? url : url.toString();
-  console.log('[customFetch] 요청 시작:', { urlString, options });
   
   // localhost 참조를 Mac 장치의 IP로 변경 (실제 기기에서 테스트할 때 필요)
   if (urlString.includes('localhost') && Platform.OS === 'ios') {
     const EXPO_IP = '172.30.107.16'; // 실제 Expo 서버 IP
     urlString = urlString.replace('localhost', EXPO_IP);
-    console.log('[customFetch] localhost를 IP로 변경:', urlString);
   }
   
   // iOS의 경우 추가 헤더 설정
@@ -76,63 +74,65 @@ const customFetch = async (url: RequestInfo | URL, options: RequestInit = {}) =>
     'Pragma': 'no-cache',
     ...(
       options.headers && typeof (options.headers as any).get === 'function'
-        ? Object.fromEntries((options.headers as any).entries())
-        : options.headers
+        ? Object.fromEntries(
+            (Array.from((options.headers as any).entries()) as [string, any][]).filter(
+              ([key, _value]) => key.toLowerCase() !== 'content-type'
+            )
+          )
+        : Object.fromEntries(
+            (Object.entries(options.headers || {}) as [string, any][]).filter(
+              ([key, _value]) => key.toLowerCase() !== 'content-type'
+            )
+          )
     ),
   };
-  console.log('[customFetch] 최종 요청 헤더:', mergedHeaders);
   
   // 타임아웃 처리를 위한 AbortController
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
-    console.error('[customFetch] 타임아웃 발생! (60초)');
     controller.abort();
   }, 60000); // 60초로 연장
   
-  // 최대 3회 재시도
+  // 최대 1회 재시도
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 1;
   let lastError;
 
   while (attempts < maxAttempts) {
     try {
-      console.log(`[customFetch] [시도 ${attempts + 1}] fetch 요청:`, { urlString, options, mergedHeaders });
+      console.log(`[customFetch] fetch 요청:`, { urlString, options });
       const response = await fetch(urlString, {
         ...options,
         headers: mergedHeaders,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      console.log(`[customFetch] [시도 ${attempts + 1}] 응답 수신:`, { status: response.status, ok: response.ok, response });
       let responseBody;
       try {
         responseBody = await response.clone().json();
-        console.log(`[customFetch] [시도 ${attempts + 1}] 응답 JSON:`, responseBody);
       } catch (jsonErr) {
         try {
           responseBody = await response.clone().text();
-          console.log(`[customFetch] [시도 ${attempts + 1}] 응답 TEXT:`, responseBody);
         } catch (textErr) {
-          console.log(`[customFetch] [시도 ${attempts + 1}] 응답 본문 파싱 실패`);
+          // 파싱 실패 시 별도 로그 남기지 않음
         }
       }
       if (!response.ok) {
-        console.error(`[customFetch] [시도 ${attempts + 1}] 응답 실패:`, { status: response.status, responseBody });
+        console.error(`[customFetch] 응답 실패:`, { status: response.status, responseBody });
         throw new Error(responseBody ? JSON.stringify(responseBody) : '응답 실패');
       }
       return response;
     } catch (error) {
       lastError = error;
-      console.error(`[customFetch] [시도 ${attempts + 1}] 네트워크 에러 발생:`, error, { urlString, options, mergedHeaders });
+      console.error(`[customFetch] 네트워크 에러:`, error);
       attempts++;
       if (attempts >= maxAttempts) {
         clearTimeout(timeoutId);
         console.error('[customFetch] 모든 재시도 실패. 마지막 에러:', lastError);
         break;
       }
-      // 재시도 전 대기
+      // 재시도 전 대기 (로그 생략)
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log(`[customFetch] [시도 ${attempts + 1}] 재시도 대기 후 진행`);
     }
   }
   throw lastError;

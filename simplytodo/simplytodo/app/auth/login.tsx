@@ -68,7 +68,14 @@ export default function LoginScreen() {
         router.replace('/(tabs)');
       }
     } catch (error: any) {
-      Alert.alert('오류', error.message || '인증 과정에서 오류가 발생했습니다.');
+      if (
+        error?.message &&
+        error.message.toLowerCase().includes('invalid login credentials')
+      ) {
+        Alert.alert('로그인 실패', '아이디와 비밀번호를 확인해주세요.');
+      } else {
+        Alert.alert('오류', error.message || '인증 과정에서 오류가 발생했습니다.');
+      }
     } finally {
       setLoading(false);
     }

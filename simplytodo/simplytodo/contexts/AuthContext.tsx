@@ -40,6 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 인증 상태 변경 구독
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          Alert.alert('세션 만료', '로그인이 만료되었습니다. 다시 로그인 해주세요.');
+          setUser(null);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);

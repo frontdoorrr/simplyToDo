@@ -2,30 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, SafeAreaView, View, Text, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TodoList } from '@/components/TodoList';
-import { Todo } from '@/types/Todo';
+import { Todo, Category } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
+import { useIsFocused } from '@react-navigation/native';
+import { todosApi, categoriesApi } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CompletedScreen() {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const isFocused = useIsFocused();
+  const { user } = useAuth();
 
-  // Load todos from AsyncStorage on component mount
   useEffect(() => {
-    const loadTodos = async () => {
-      try {
-        const storedTodos = await AsyncStorage.getItem('todos');
-        if (storedTodos) {
-          const parsedTodos = JSON.parse(storedTodos);
-          // Filter only completed todos
-          const completedTodos = parsedTodos.filter((todo: Todo) => todo.completed);
-          setTodos(completedTodos);
-        }
-      } catch (error) {
-        console.error('Failed to load todos:', error);
-      }
+    if (!isFocused || !user) return;
+    const fetchCompletedTodos = async () => {
+      const allTodos = await todosApi.getTodos(user.id);
+      setTodos(allTodos.filter((todo: Todo) => todo.completed));
     };
-
-    loadTodos();
-  }, []);
+    const fetchCategories = async () => {
+      const cats = await categoriesApi.getCategories(user.id);
+      setCategories(cats);
+    };
+    fetchCompletedTodos();
+    fetchCategories();
+  }, [isFocused, user]);
 
   // Delete a todo
   const handleDelete = async (id: string) => {
@@ -80,8 +81,9 @@ export default function CompletedScreen() {
       </View>
       <TodoList
         todos={todos}
-        onDeleteTodo={handleDelete}
-        onCompleteTodo={handleComplete}
+        categories={categories}
+        onDelete={handleDelete}
+        onToggle={handleComplete}
       />
     </SafeAreaView>
   );

@@ -514,7 +514,7 @@ export default function HomeScreen() {
         <AddTodo onAddTodo={handleAddTodo} />
         <View style={{ flex: 1, padding: 16 }}>
           <TodoList 
-            todos={processedTodos} 
+            todos={processedTodos.filter(todo => !todo.completed)} 
             onToggle={handleToggleTodo} 
             onDelete={handleDeleteTodo}
             categories={categories}
