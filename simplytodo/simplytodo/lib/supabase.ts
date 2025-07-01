@@ -1,20 +1,153 @@
 // React Native에서 URL 및 URLSearchParams 지원을 위한 polyfill
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { Alert } from 'react-native';
 
-// Supabase 프로젝트 URL 및 익명 키
+// 플랫폼에 따라 다른 저장소 사용
+let storage;
+
+// React Native용 저장소
+const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
+// 가상 저장소 - SSR이나 테스트 환경에서 사용
+// localStorage가 없는 서버사이드 렌더링 환경에서 동작하기 위함
+const memoryStorage = {
+  storage: {} as Record<string, string>,
+  async getItem(key: string) {
+    return this.storage[key] || null;
+  },
+  async setItem(key: string, value: string) {
+    this.storage[key] = value;
+  },
+  async removeItem(key: string) {
+    delete this.storage[key];
+  }
+};
+
+// 웹 환경에서 localStorage 존재 확인
+if (Platform.OS === 'web') {
+  // 웹 환경에서 localStorage가 존재하는지 확인 (서버사이드에서는 없음)
+  const hasLocalStorage = typeof window !== 'undefined' && window.localStorage !== undefined;
+  if (hasLocalStorage) {
+    // 브라우저 환경 - localStorage 사용
+    storage = {
+      async getItem(key: string) {
+        return localStorage.getItem(key);
+      },
+      async setItem(key: string, value: string) {
+        return localStorage.setItem(key, value);
+      },
+      async removeItem(key: string) {
+        return localStorage.removeItem(key);
+      }
+    };
+  } else {
+    // 서버사이드 렌더링 - 가상 메모리 저장소 사용
+    console.log('서버사이드 환경에서 memoryStorage 사용');
+    storage = memoryStorage;
+  }
+} else {
+  // React Native 환경 - AsyncStorage 사용
+  storage = AsyncStorage;
+}
+
+// Supabase 프로젝트 URL 및 익명 키 - HTTPS 사용 확인
 const supabaseUrl = 'https://sfrgigqeydzmdyyucmfl.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmdpZ3FleWR6bWR5eXVjbWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM4ODMsImV4cCI6MjA2Njc2OTg4M30.zykBzW2xhlJr_5BtTifztDqMIN9jGQted-F9MRBLw04';
 
-// 기본 옵션으로 Supabase 클라이언트 생성 - 네트워크 오류 문제 해결을 위해 단순화
+// iOS용 고급 fetch 래퍼 함수
+const customFetch = async (url: RequestInfo | URL, options: RequestInit = {}) => {
+  let urlString = typeof url === 'string' ? url : url.toString();
+  console.log('[customFetch] 요청 시작:', { urlString, options });
+  
+  // localhost 참조를 Mac 장치의 IP로 변경 (실제 기기에서 테스트할 때 필요)
+  if (urlString.includes('localhost') && Platform.OS === 'ios') {
+    const EXPO_IP = '172.30.107.16'; // 실제 Expo 서버 IP
+    urlString = urlString.replace('localhost', EXPO_IP);
+    console.log('[customFetch] localhost를 IP로 변경:', urlString);
+  }
+  
+  // iOS의 경우 추가 헤더 설정
+  const mergedHeaders = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Pragma': 'no-cache',
+    ...(
+      options.headers && typeof (options.headers as any).get === 'function'
+        ? Object.fromEntries((options.headers as any).entries())
+        : options.headers
+    ),
+  };
+  console.log('[customFetch] 최종 요청 헤더:', mergedHeaders);
+  
+  // 타임아웃 처리를 위한 AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.error('[customFetch] 타임아웃 발생! (60초)');
+    controller.abort();
+  }, 60000); // 60초로 연장
+  
+  // 최대 3회 재시도
+  let attempts = 0;
+  const maxAttempts = 3;
+  let lastError;
+
+  while (attempts < maxAttempts) {
+    try {
+      console.log(`[customFetch] [시도 ${attempts + 1}] fetch 요청:`, { urlString, options, mergedHeaders });
+      const response = await fetch(urlString, {
+        ...options,
+        headers: mergedHeaders,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      console.log(`[customFetch] [시도 ${attempts + 1}] 응답 수신:`, { status: response.status, ok: response.ok, response });
+      let responseBody;
+      try {
+        responseBody = await response.clone().json();
+        console.log(`[customFetch] [시도 ${attempts + 1}] 응답 JSON:`, responseBody);
+      } catch (jsonErr) {
+        try {
+          responseBody = await response.clone().text();
+          console.log(`[customFetch] [시도 ${attempts + 1}] 응답 TEXT:`, responseBody);
+        } catch (textErr) {
+          console.log(`[customFetch] [시도 ${attempts + 1}] 응답 본문 파싱 실패`);
+        }
+      }
+      if (!response.ok) {
+        console.error(`[customFetch] [시도 ${attempts + 1}] 응답 실패:`, { status: response.status, responseBody });
+        throw new Error(responseBody ? JSON.stringify(responseBody) : '응답 실패');
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      console.error(`[customFetch] [시도 ${attempts + 1}] 네트워크 에러 발생:`, error, { urlString, options, mergedHeaders });
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearTimeout(timeoutId);
+        console.error('[customFetch] 모든 재시도 실패. 마지막 에러:', lastError);
+        break;
+      }
+      // 재시도 전 대기
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log(`[customFetch] [시도 ${attempts + 1}] 재시도 대기 후 진행`);
+    }
+  }
+  throw lastError;
+};
+
+// 기본 옵션으로 Supabase 클라이언트 생성 - 과도한 처리로 인한 문제 방지를 위해 최소한의 필요 설정만 유지
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: storage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: false
+  },
+  global: {
+    fetch: customFetch
   }
 });
 

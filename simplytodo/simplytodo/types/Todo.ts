@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 // 카테고리 인터페이스 정의
 export interface Category {
   id: string;
@@ -21,11 +23,11 @@ export const CategoryColors = {
 
 // 기본 카테고리 목록
 export const DefaultCategories: Category[] = [
-  { id: 'work', name: '업무', color: CategoryColors.blue },
-  { id: 'personal', name: '개인', color: CategoryColors.green },
-  { id: 'shopping', name: '쇼핑', color: CategoryColors.orange },
-  { id: 'health', name: '건강', color: CategoryColors.red },
-  { id: 'study', name: '공부', color: CategoryColors.purple },
+  { id: '50ec9810-a80b-40fb-8af4-857c7ca2dbeb', name: '업무', color: CategoryColors.blue },
+  { id: 'd6ed3190-59ac-4f85-b437-dd8181c25a6b', name: '개인', color: CategoryColors.green },
+  { id: '0b998f10-d570-4361-b590-7ce82ee6d392', name: '쇼핑', color: CategoryColors.orange },
+  { id: 'b2421946-aba8-4514-b9cd-a91b7ec404a8', name: '건강', color: CategoryColors.red },
+  { id: 'e3a82072-4518-4d3a-b53d-1b83b31a7f06', name: '공부', color: CategoryColors.purple },
 ];
 
 export interface Todo {
@@ -49,7 +51,7 @@ export const createTodo = (
 ): Todo => {
   const now = Date.now();
   return {
-    id: now.toString(),
+    id: uuidv4(),
     text,
     completed: false,
     importance,
@@ -62,7 +64,7 @@ export const createTodo = (
 // 카테고리 생성을 위한 팩토리 함수
 export const createCategory = (name: string, color: string): Category => {
   return {
-    id: Date.now().toString(),
+    id: uuidv4(),
     name,
     color,
   };
