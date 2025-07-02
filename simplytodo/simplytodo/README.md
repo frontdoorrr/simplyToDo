@@ -1,8 +1,26 @@
+## SimplyToDo: AI 기반 스마트 할 일 관리 앱
+
+SimplyToDo는 단순한 할 일 관리에서 한 걸음 더 나아가,  
+AI 기반 Taskmaster-AI 스타일의 스마트 ToDo 앱으로 발전하고 있습니다.
+
+- AI 기반 태스크 분해/추천
+- 자연어 입력 및 일정/우선순위 자동 추천
+- 반복/루틴 자동화, 생산성 코칭 등
+
+## SimplyToDo: Towards an AI-powered Smart ToDo App
+
+SimplyToDo is evolving from a simple todo manager to an AI-powered,  
+Taskmaster-AI style smart productivity app.
+
+- AI-based task breakdown & recommendations
+- Natural language input, schedule/priority suggestions
+- Routine automation, productivity coaching, and more
+
 # SimplyToDo App 📝
 
 간단한 할 일 관리 앱입니다. 따뜻한 연두색 테마로 구성되어 있으며, 중요도에 따라 더 높은 녹색을 띄도록 만들어졌습니다.
 
-This is a simple Todo management app built with [React Native](https://reactnative.dev/) and [Expo](https://expo.dev).
+This is a simple Todo management app built with [React Native](https://reactnative.dev/) and [Expo](https://expo.dev/).
 
 ## Features
 
