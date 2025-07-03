@@ -9,10 +9,12 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Category, CategoryColors, DefaultCategories, createCategory } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
+import { v4 as uuidv4 } from 'uuid';
+import { categoriesApi } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CategoryManagerProps {
   onCategorySelect: (categoryId: string | null) => void;
@@ -23,6 +25,8 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   onCategorySelect,
   selectedCategoryId,
 }) => {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [categories, setCategories] = useState<Category[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -30,79 +34,67 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const [selectedColor, setSelectedColor] = useState(CategoryColors.blue);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-  // 카테고리 불러오기
+  // Supabase에서 카테고리 불러오기
   useEffect(() => {
+    if (!userId) return;
     const loadCategories = async () => {
       try {
-        const storedCategories = await AsyncStorage.getItem('categories');
-        if (storedCategories) {
-          setCategories(JSON.parse(storedCategories));
-        } else {
-          // 저장된 카테고리가 없으면 기본 카테고리 사용
-          setCategories(DefaultCategories);
-          await AsyncStorage.setItem('categories', JSON.stringify(DefaultCategories));
-        }
+        const data = await categoriesApi.getCategories(userId);
+        setCategories(data);
       } catch (error) {
         console.error('카테고리 불러오기 실패:', error);
       }
     };
-
     loadCategories();
-  }, []);
-
-  // 카테고리 저장
-  const saveCategories = async (updatedCategories: Category[]) => {
-    try {
-      await AsyncStorage.setItem('categories', JSON.stringify(updatedCategories));
-    } catch (error) {
-      console.error('카테고리 저장 실패:', error);
-    }
-  };
+  }, [userId]);
 
   // 카테고리 추가
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (newCategoryName.trim() === '') {
       Alert.alert('알림', '카테고리 이름을 입력해주세요.');
       return;
     }
-
-    const newCategory = createCategory(newCategoryName.trim(), selectedColor);
-    const updatedCategories = [...categories, newCategory];
-    
-    setCategories(updatedCategories);
-    saveCategories(updatedCategories);
-    
-    // 입력 필드 초기화
-    setNewCategoryName('');
-    setSelectedColor(CategoryColors.blue);
-    setShowModal(false);
+    if (!userId) return;
+    try {
+      const newCategory = await categoriesApi.addCategory({
+        name: newCategoryName.trim(),
+        color: selectedColor,
+        user_id: userId,
+      });
+      setCategories([...categories, newCategory]);
+      setNewCategoryName('');
+      setSelectedColor(CategoryColors.blue);
+      setShowModal(false);
+    } catch (error) {
+      Alert.alert('카테고리 추가 실패', '카테고리 추가 중 오류가 발생했습니다.');
+    }
   };
 
   // 카테고리 수정
-  const handleEditCategory = () => {
+  const handleEditCategory = async () => {
     if (!editingCategory || newCategoryName.trim() === '') {
       Alert.alert('알림', '카테고리 이름을 입력해주세요.');
       return;
     }
-
-    const updatedCategories = categories.map(cat => 
-      cat.id === editingCategory.id 
-        ? { ...cat, name: newCategoryName.trim(), color: selectedColor }
-        : cat
-    );
-    
-    setCategories(updatedCategories);
-    saveCategories(updatedCategories);
-    
-    // 입력 필드 초기화
-    setNewCategoryName('');
-    setSelectedColor(CategoryColors.blue);
-    setEditingCategory(null);
-    setShowModal(false);
+    if (!userId) return;
+    try {
+      const updated = await categoriesApi.updateCategory(editingCategory.id, {
+        name: newCategoryName.trim(),
+        color: selectedColor,
+      });
+      setCategories(categories.map(cat => cat.id === updated.id ? updated : cat));
+      setNewCategoryName('');
+      setSelectedColor(CategoryColors.blue);
+      setEditingCategory(null);
+      setShowModal(false);
+    } catch (error) {
+      Alert.alert('카테고리 수정 실패', '카테고리 수정 중 오류가 발생했습니다.');
+    }
   };
 
   // 카테고리 삭제
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!userId) return;
     Alert.alert(
       '카테고리 삭제',
       '이 카테고리를 삭제하시겠습니까? 해당 카테고리에 속한 할 일은 카테고리가 없는 상태로 변경됩니다.',
@@ -111,14 +103,15 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
         {
           text: '삭제',
           style: 'destructive',
-          onPress: () => {
-            const updatedCategories = categories.filter(cat => cat.id !== categoryId);
-            setCategories(updatedCategories);
-            saveCategories(updatedCategories);
-            
-            // 현재 선택된 카테고리가 삭제되는 경우 선택 해제
-            if (selectedCategoryId === categoryId) {
-              onCategorySelect(null);
+          onPress: async () => {
+            try {
+              await categoriesApi.deleteCategory(categoryId);
+              setCategories(categories.filter(cat => cat.id !== categoryId));
+              if (selectedCategoryId === categoryId) {
+                onCategorySelect(null);
+              }
+            } catch (error) {
+              Alert.alert('카테고리 삭제 실패', '카테고리 삭제 중 오류가 발생했습니다.');
             }
           }
         }

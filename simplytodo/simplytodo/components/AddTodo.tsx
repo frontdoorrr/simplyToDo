@@ -3,9 +3,23 @@ import { StyleSheet, TextInput, View, TouchableOpacity, Text, Platform, Modal, S
 import { MaterialIcons } from '@expo/vector-icons';
 import { TodoColors } from '@/constants/Colors';
 import { CategoryManager } from './CategoryManager';
+import * as Notifications from 'expo-notifications';
 
 interface AddTodoProps {
   onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
+}
+
+// 할 일 마감 알림 예약 함수
+async function scheduleTodoNotification(title: string, dueDate: Date) {
+  const now = new Date();
+  const seconds = Math.max(1, Math.floor((dueDate.getTime() - now.getTime()) / 1000));
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '할 일 마감 알림',
+      body: `"${title}" 마감 시간이 다가왔어요!`,
+    },
+    trigger: { seconds, repeats: false },
+  });
 }
 
 export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
@@ -18,6 +32,10 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo }) => {
   const handleAddTodo = () => {
     if (text.trim()) {
       onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
+      // 마감일이 있으면 알림 예약
+      if (dueDate) {
+        scheduleTodoNotification(text.trim(), dueDate);
+      }
       setText('');
       setDueDate(null);
       setSelectedCategoryId(null);

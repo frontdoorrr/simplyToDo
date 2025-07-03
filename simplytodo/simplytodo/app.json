@@ -40,7 +40,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#4caf50"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
