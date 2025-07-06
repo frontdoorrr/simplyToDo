@@ -2,6 +2,7 @@
 import 'react-native-url-polyfill/auto';
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+import { RecurringRule } from '@/types/RecurringRule';
 
 // 플랫폼에 따라 다른 저장소 사용
 let storage;
@@ -299,6 +300,68 @@ export const categoriesApi = {
       
       if (error) {
         console.error('카테고리 삭제 오류:', error);
+        throw error;
+      }
+      return true;
+    });
+  }
+};
+
+export const recurringRulesApi = {
+  async getRecurringRules(userId: string): Promise<RecurringRule[]> {
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('recurring_rules')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('반복 규칙 가져오기 오류:', error);
+        return [];
+      }
+    });
+  },
+
+  async addRecurringRule(rule: Omit<RecurringRule, 'id' | 'created_at' | 'updated_at'>): Promise<RecurringRule> {
+    return withRetry(async () => {
+      const { data, error } = await supabase
+        .from('recurring_rules')
+        .insert([rule])
+        .select();
+      if (error) {
+        console.error('반복 규칙 추가 오류:', error);
+        throw error;
+      }
+      return data?.[0];
+    });
+  },
+
+  async updateRecurringRule(id: string, updates: Partial<RecurringRule>): Promise<RecurringRule> {
+    return withRetry(async () => {
+      const { data, error } = await supabase
+        .from('recurring_rules')
+        .update(updates)
+        .eq('id', id)
+        .select();
+      if (error) {
+        console.error('반복 규칙 업데이트 오류:', error);
+        throw error;
+      }
+      return data?.[0];
+    });
+  },
+
+  async deleteRecurringRule(id: string): Promise<boolean> {
+    return withRetry(async () => {
+      const { error } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        console.error('반복 규칙 삭제 오류:', error);
         throw error;
       }
       return true;

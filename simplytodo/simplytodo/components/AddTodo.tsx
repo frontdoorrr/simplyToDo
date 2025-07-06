@@ -15,8 +15,8 @@ async function scheduleTodoNotification(title: string, dueDate: Date) {
   const seconds = Math.max(1, Math.floor((dueDate.getTime() - now.getTime()) / 1000));
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '할 일 마감 알림',
-      body: `"${title}" 마감 시간이 다가왔어요!`,
+      title: '[SimplyTodo]할 일 마감 알림',
+      body: `"${title}" 마감이 오늘이에요`,
     },
     trigger: { seconds, repeats: false },
   });
