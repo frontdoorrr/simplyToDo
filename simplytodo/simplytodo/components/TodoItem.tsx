@@ -205,13 +205,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const hasSubtasks = subtasks && subtasks.length > 0;
   const isMainTodo = grade === 0;
   
-  // 디버깅 로그 (모든 항목)
-  console.log(`📊 TodoItem ${text}:`, { 
-    subtasks: subtasks ? `${subtasks.length}개` : 'undefined',
-    hasSubtasks, 
-    grade,
-    parentId: parentId?.substring(0, 8)
-  });
   
   // Subtask 진행률 계산
   const getSubtaskProgress = () => {
@@ -315,14 +308,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       </Swipeable>
       
       {/* Subtask 목록 표시 */}
-      {console.log(`Subtask 렌더링 조건 체크 ${text}:`, {
-        hasSubtasks,
-        subtasks: !!subtasks,
-        categories: !!categories,
-        onToggleSubtask: !!onToggleSubtask,
-        onDeleteSubtask: !!onDeleteSubtask,
-        onAddSubtask: !!onAddSubtask
-      })}
       {hasSubtasks && subtasks && categories && onToggleSubtask && onDeleteSubtask && onAddSubtask && (
         <SubtaskList
           parentTodo={{ id, text, completed, importance, createdAt: 0, dueDate, categoryId, parentId, grade, subtasks }}

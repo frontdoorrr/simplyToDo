@@ -506,9 +506,6 @@ export const subtaskUtils = {
     const todoMap = new Map<string, any>();
     const rootTodos: any[] = [];
     
-    console.log('buildTodoTree 입력:', todos.length, '개');
-    console.log('Parent가 있는 todo들:', todos.filter(t => (t as any).parentId).length, '개');
-    console.log('🔍 실제 parent_id 필드 확인:', todos.slice(0, 2).map(t => ({ id: t.id?.substring(0, 8), parent_id: t.parent_id, parentId: (t as any).parentId })));
     
     // 모든 todo를 맵에 저장하고 subtasks 배열 초기화
     todos.forEach(todo => {
@@ -523,9 +520,6 @@ export const subtaskUtils = {
         const parent = todoMap.get((todo as any).parentId);
         if (parent) {
           parent.subtasks.push(todoWithSubtasks);
-          console.log(`✅ 연결 성공: "${todo.text?.substring(0, 15)}" -> "${parent.text?.substring(0, 15)}"`);
-        } else {
-          console.log(`❌ 부모를 찾을 수 없음: child="${todo.text?.substring(0, 20)}" parentId=${(todo as any).parentId?.substring(0, 8)}`);
         }
       } else {
         rootTodos.push(todoWithSubtasks);
@@ -570,8 +564,6 @@ export const subtaskUtils = {
       }
     });
     
-    const finalResult = rootTodos.map(t => ({ text: t.text?.substring(0, 20), subtaskCount: t.subtasks.length }));
-    console.log('✅ buildTodoTree 결과 (subtask 있는 것만):', finalResult.filter(t => t.subtaskCount > 0));
     return rootTodos;
   },
 

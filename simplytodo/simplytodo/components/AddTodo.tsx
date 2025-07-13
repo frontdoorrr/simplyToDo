@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, View, TouchableOpacity, Text, Platform, Modal, ScrollView, FlatList } from 'react-native';
+import { StyleSheet, TextInput, View, TouchableOpacity, Text, Platform, Modal, ScrollView, FlatList, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TodoColors } from '@/constants/Colors';
 import { CategoryManager } from './CategoryManager';
 import { Todo } from '@/types/Todo';
 import * as Notifications from 'expo-notifications';
+import { aiService } from '@/lib/ai/AIService';
 
 interface AddTodoProps {
-  onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
+  onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => Promise<string>; // Promise<todoId> 반환
   onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
+  onAddAISubtasks?: (parentId: string, aiSuggestions: any[]) => Promise<void>; // AI 서브태스크 추가 콜백
   mainTodos?: Todo[]; // Subtask를 위한 메인 할 일 목록
 }
 
@@ -25,7 +27,7 @@ async function scheduleTodoNotification(title: string, dueDate: Date) {
   });
 }
 
-export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainTodos = [] }) => {
+export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAddAISubtasks, mainTodos = [] }) => {
   const [text, setText] = useState('');
   const [importance, setImportance] = useState(3); // Default importance level (1-5)
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -36,15 +38,20 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
   const [isSubtaskMode, setIsSubtaskMode] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [showParentSelector, setShowParentSelector] = useState(false);
+  
+  // AI 관련 상태
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
 
-  const handleAddTodo = () => {
+  const handleAddTodo = async () => {
     if (text.trim()) {
       if (isSubtaskMode && selectedParentId && onAddSubtask) {
         // Subtask 추가
         onAddSubtask(selectedParentId, text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
       } else {
         // 메인 할 일 추가
-        onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
+        await onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
       }
       
       // 마감일이 있으면 알림 예약
@@ -119,6 +126,77 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
     setImportance(level);
   };
 
+  const handleAIGenerate = async () => {
+    if (!text.trim()) {
+      Alert.alert('알림', 'AI로 서브태스크를 생성하려면 먼저 메인 태스크를 입력해주세요.');
+      return;
+    }
+
+    if (!aiService.isReady()) {
+      Alert.alert('오류', 'AI 서비스가 아직 초기화되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    setIsAIGenerating(true);
+    
+    try {
+      const response = await aiService.generateSubtasks({
+        mainTask: text.trim(),
+        context: {
+          userPreferences: {
+            maxSubtasks: 5,
+            preferredComplexity: 'detailed'
+          }
+        }
+      });
+
+      if (response.success && response.data) {
+        setAiSuggestions(response.data.suggestedSubtasks);
+        setShowAIModal(true);
+        
+        // AI가 추천한 중요도와 카테고리 적용
+        if (response.data.suggestedImportance) {
+          setImportance(response.data.suggestedImportance);
+        }
+      } else {
+        Alert.alert('오류', response.error || 'AI 서브태스크 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      Alert.alert('오류', 'AI 서비스 연결에 실패했습니다. 네트워크 연결을 확인해주세요.');
+    } finally {
+      setIsAIGenerating(false);
+    }
+  };
+
+  const handleAcceptAISuggestions = async () => {
+    if (!text.trim() || !onAddAISubtasks) return;
+
+    try {
+      // 먼저 메인 태스크 추가하고 ID 받기
+      const parentId = await onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
+
+      // 마감일이 있으면 알림 예약
+      if (dueDate) {
+        scheduleTodoNotification(text.trim(), dueDate);
+      }
+
+      // AI 제안 서브태스크들 추가
+      await onAddAISubtasks(parentId, aiSuggestions);
+
+      // 상태 초기화
+      setText('');
+      setDueDate(null);
+      setSelectedCategoryId(null);
+      setShowAIModal(false);
+      setAiSuggestions([]);
+      
+      Alert.alert('완료', `메인 태스크와 ${aiSuggestions.length}개의 AI 서브태스크가 추가되었습니다!`);
+    } catch (error) {
+      Alert.alert('오류', 'AI 서브태스크 추가 중 오류가 발생했습니다.');
+      console.error('AI subtask creation error:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Subtask 모드 상태 표시 */}
@@ -144,6 +222,19 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
           onSubmitEditing={handleAddTodo}
           returnKeyType="done"
         />
+        
+        {/* AI 생성 버튼 */}
+        <TouchableOpacity
+          style={[styles.aiButton, isAIGenerating && styles.aiButtonLoading]}
+          onPress={handleAIGenerate}
+          disabled={isAIGenerating || !text.trim()}
+        >
+          <MaterialIcons 
+            name={isAIGenerating ? "hourglass-empty" : "auto-awesome"} 
+            size={20} 
+            color={isAIGenerating || !text.trim() ? TodoColors.text.secondary : TodoColors.primary} 
+          />
+        </TouchableOpacity>
         
         {/* Subtask 모드 토글 버튼 */}
         <TouchableOpacity
@@ -276,6 +367,68 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowDateModal(false)}>
               <Text style={styles.closeButtonText}>닫기</Text>
             </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* AI 제안 모달 */}
+      <Modal
+        visible={showAIModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAIModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowAIModal(false)}
+        >
+          <View style={styles.aiModalContainer} onStartShouldSetResponder={() => true}>
+            <View style={styles.aiModalHeader}>
+              <MaterialIcons name="auto-awesome" size={24} color={TodoColors.primary} />
+              <Text style={styles.aiModalTitle}>AI 서브태스크 제안</Text>
+              <TouchableOpacity onPress={() => setShowAIModal(false)}>
+                <MaterialIcons name="close" size={24} color={TodoColors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.aiModalMainTask}>메인 태스크: {text}</Text>
+            
+            <ScrollView style={styles.aiSuggestionsList}>
+              {aiSuggestions.map((suggestion, index) => (
+                <View key={index} style={styles.aiSuggestionItem}>
+                  <View style={styles.aiSuggestionHeader}>
+                    <Text style={styles.aiSuggestionText}>{suggestion.text}</Text>
+                    <View style={styles.aiSuggestionMeta}>
+                      <Text style={styles.aiSuggestionImportance}>
+                        중요도: {suggestion.importance || 3}
+                      </Text>
+                      {suggestion.estimatedDuration && (
+                        <Text style={styles.aiSuggestionDuration}>
+                          예상시간: {suggestion.estimatedDuration}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            
+            <View style={styles.aiModalActions}>
+              <TouchableOpacity 
+                style={styles.aiModalRejectButton}
+                onPress={() => setShowAIModal(false)}
+              >
+                <Text style={styles.aiModalRejectText}>취소</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.aiModalAcceptButton}
+                onPress={handleAcceptAISuggestions}
+              >
+                <Text style={styles.aiModalAcceptText}>적용하기</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -507,5 +660,113 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
     marginTop: 8,
+  },
+  aiButton: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: TodoColors.background.input,
+    borderWidth: 1,
+    borderColor: TodoColors.primary,
+    marginRight: 8,
+  },
+  aiButtonLoading: {
+    opacity: 0.6,
+  },
+  aiModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    margin: 20,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  aiModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  aiModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: TodoColors.text.primary,
+    flex: 1,
+    textAlign: 'center',
+  },
+  aiModalMainTask: {
+    fontSize: 16,
+    color: TodoColors.text.primary,
+    padding: 16,
+    backgroundColor: TodoColors.background.card,
+    margin: 16,
+    borderRadius: 8,
+    fontWeight: '500',
+  },
+  aiSuggestionsList: {
+    maxHeight: 300,
+    paddingHorizontal: 16,
+  },
+  aiSuggestionItem: {
+    backgroundColor: TodoColors.background.card,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  aiSuggestionHeader: {
+    flexDirection: 'column',
+  },
+  aiSuggestionText: {
+    fontSize: 15,
+    color: TodoColors.text.primary,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  aiSuggestionMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  aiSuggestionImportance: {
+    fontSize: 12,
+    color: TodoColors.primary,
+    fontWeight: '600',
+  },
+  aiSuggestionDuration: {
+    fontSize: 12,
+    color: TodoColors.text.secondary,
+  },
+  aiModalActions: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+  },
+  aiModalRejectButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+  },
+  aiModalRejectText: {
+    color: TodoColors.text.secondary,
+    fontWeight: '600',
+  },
+  aiModalAcceptButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: TodoColors.primary,
+    alignItems: 'center',
+  },
+  aiModalAcceptText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

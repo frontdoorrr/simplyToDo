@@ -9,6 +9,7 @@ import { TodoColors } from '@/constants/Colors';
 import { todosApi, categoriesApi, subtaskUtils } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { resetApp } from '@/lib/appReset';
+import { aiService, createGeminiConfig } from '@/lib/ai/AIService';
 
 // 정렬 옵션 타입 정의
 type SortOption = 'none' | 'dueDate-asc' | 'dueDate-desc' | 'importance-asc' | 'importance-desc';
@@ -42,6 +43,24 @@ export default function HomeScreen() {
       try {
         setLoading(true);
         
+        // AI 서비스 초기화 (Gemini 사용)
+        if (!aiService.isReady()) {
+          try {
+            const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+              console.warn('Gemini API key not found in environment variables');
+              throw new Error('Gemini API key not configured');
+            }
+            
+            const geminiConfig = createGeminiConfig(apiKey);
+            await aiService.initialize(geminiConfig);
+            console.log('AI service initialized:', aiService.getCurrentProvider());
+          } catch (aiError) {
+            console.warn('AI service initialization failed:', aiError);
+            // AI 기능은 선택적이므로 에러가 나도 앱은 계속 실행
+          }
+        }
+        
         // 할 일 목록과 카테고리를 병렬로 불러오기
         const [todos, categories] = await Promise.all([
           todosApi.getTodos(user.id),
@@ -67,23 +86,10 @@ export default function HomeScreen() {
           color: category.color
         }));
         
-        // Subtask 데이터 확인
-        console.log('전체 todos 개수:', formattedTodos.length);
-        console.log('메인 todos (grade=0):', formattedTodos.filter(t => t.grade === 0).length);
-        console.log('Subtask (grade>0):', formattedTodos.filter(t => t.grade > 0).length);
-        console.log('🔍 RAW 데이터에서 parent_id 있는 todos:', todos.filter(t => t.parent_id).length);
-        console.log('🔍 변환된 데이터에서 parentId 있는 todos:', formattedTodos.filter(t => t.parentId).length);
-        console.log('🔍 변환된 데이터 샘플:', formattedTodos.filter(t => t.parentId).slice(0, 2).map(t => ({ 
-          id: t.id?.substring(0, 8), 
-          parentId: t.parentId?.substring(0, 8), 
-          grade: t.grade, 
-          text: t.text?.substring(0, 30) 
-        })));
         
         // subtaskUtils를 사용하여 트리 구조 구성
         const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
         
-        console.log('Subtask가 연결된 todos:', todoTree.map(t => ({ id: t.id, text: t.text, subtaskCount: t.subtasks?.length || 0 })));
         
         setTodos(todoTree);
         setCategories(formattedCategories.length > 0 ? formattedCategories : DefaultCategories);
@@ -104,8 +110,8 @@ export default function HomeScreen() {
   // 단, Supabase 동기화는 개별 작업에서 직접 처리하므로 여기서는 생략
 
   // Add a new todo - Supabase와 동기화
-  const handleAddTodo = useCallback(async (text: string, importance: number, dueDate: number | null, categoryId: string | null) => {
-    if (!user) return;
+  const handleAddTodo = useCallback(async (text: string, importance: number, dueDate: number | null, categoryId: string | null): Promise<string> => {
+    if (!user) throw new Error('User not authenticated');
     
     try {
       // Supabase에 추가
@@ -134,9 +140,12 @@ export default function HomeScreen() {
         parentId: newTodo.parent_id,
         grade: newTodo.grade || 0
       }]);
+
+      return newTodo.id; // 새로 생성된 Todo ID 반환
     } catch (error) {
       console.error('할 일 추가 오류:', error);
       Alert.alert('할 일 추가 오류', '할 일을 추가하는데 실패했습니다.');
+      throw error;
     }
   }, [user]);
 
@@ -179,6 +188,58 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Subtask 추가 오류:', error);
       Alert.alert('Subtask 추가 오류', 'Subtask를 추가하는데 실패했습니다.');
+    }
+  }, [user]);
+
+  // Add AI-generated subtasks - AI가 제안한 서브태스크들을 일괄 추가
+  const handleAddAISubtasks = useCallback(async (parentId: string, aiSuggestions: any[]) => {
+    if (!user || !aiSuggestions.length) return;
+
+    try {
+      const newSubtasks: Todo[] = [];
+      
+      // AI 제안 서브태스크들을 순차적으로 추가
+      for (const suggestion of aiSuggestions) {
+        const subtaskData = {
+          text: suggestion.text,
+          completed: false,
+          importance: suggestion.importance || 3,
+          due_date: null, // AI 제안에서는 기본적으로 마감일 없음
+          category_id: null, // 부모와 같은 카테고리를 사용하거나 null
+          user_id: user.id
+        };
+
+        const newSubtask = await todosApi.addSubtask(parentId, subtaskData);
+        
+        if (newSubtask) {
+          const formattedSubtask: Todo = {
+            id: newSubtask.id!,
+            text: newSubtask.text,
+            completed: newSubtask.completed,
+            importance: newSubtask.importance,
+            createdAt: new Date(newSubtask.created_at || Date.now()).getTime(),
+            dueDate: newSubtask.due_date ? new Date(newSubtask.due_date).getTime() : null,
+            categoryId: newSubtask.category_id,
+            parentId: newSubtask.parent_id,
+            grade: newSubtask.grade || 1
+          };
+          
+          newSubtasks.push(formattedSubtask);
+        }
+      }
+
+      // 모든 새 서브태스크를 추가하고 트리 구조 재구성
+      if (newSubtasks.length > 0) {
+        setTodos(prev => {
+          const flatTodos = subtaskUtils.flattenTodoTree(prev);
+          const updatedTodos = [...flatTodos, ...newSubtasks];
+          return subtaskUtils.buildTodoTree(updatedTodos);
+        });
+      }
+    } catch (error) {
+      console.error('AI 서브태스크 추가 오류:', error);
+      Alert.alert('AI 서브태스크 추가 오류', 'AI 서브태스크를 추가하는데 실패했습니다.');
+      throw error;
     }
   }, [user]);
 
@@ -691,6 +752,7 @@ export default function HomeScreen() {
         <AddTodo 
           onAddTodo={handleAddTodo} 
           onAddSubtask={handleAddSubtask}
+          onAddAISubtasks={handleAddAISubtasks}
           mainTodos={processedTodos.filter(todo => !todo.completed && !todo.parentId)}
         />
         <View style={{ flex: 1, padding: 16 }}>
