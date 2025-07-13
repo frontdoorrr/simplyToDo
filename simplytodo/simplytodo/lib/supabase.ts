@@ -532,6 +532,44 @@ export const subtaskUtils = {
       }
     });
     
+    // Subtask 정렬 (중요도 높은순 → 마감일 빠른순 → 생성일 최신순)
+    const sortSubtasks = (subtasks: any[]): any[] => {
+      return subtasks.sort((a, b) => {
+        // 1. 완료 상태 (미완료가 먼저)
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1;
+        }
+        
+        // 2. 중요도 (높은순)
+        if (a.importance !== b.importance) {
+          return b.importance - a.importance;
+        }
+        
+        // 3. 마감일 (빠른순, null은 마지막)
+        if (a.due_date && b.due_date) {
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        }
+        if (a.due_date && !b.due_date) return -1;
+        if (!a.due_date && b.due_date) return 1;
+        
+        // 4. 생성일 (최신순)
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      }).map(subtask => {
+        // 재귀적으로 하위 subtask도 정렬
+        if (subtask.subtasks && subtask.subtasks.length > 0) {
+          subtask.subtasks = sortSubtasks(subtask.subtasks);
+        }
+        return subtask;
+      });
+    };
+    
+    // 모든 todo의 subtask 정렬
+    rootTodos.forEach(todo => {
+      if (todo.subtasks && todo.subtasks.length > 0) {
+        todo.subtasks = sortSubtasks(todo.subtasks);
+      }
+    });
+    
     const finalResult = rootTodos.map(t => ({ text: t.text?.substring(0, 20), subtaskCount: t.subtasks.length }));
     console.log('✅ buildTodoTree 결과 (subtask 있는 것만):', finalResult.filter(t => t.subtaskCount > 0));
     return rootTodos;
