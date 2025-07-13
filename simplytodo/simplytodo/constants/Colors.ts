@@ -17,7 +17,7 @@ export const TodoColors = {
     app: '#f0f7f0',        // 앱 전체 배경 (연한 민트 그린)
     card: '#ffffff',       // 할 일 카드 배경 (흰색)
     input: '#f2f7f2',      // 입력창 배경 (연한 민트 그린)
-    subtask: '#f8fbf8',    // 서브태스크 배경 (더 연한 민트 그린)
+    subtask: '#f8fbf8',    // Subtask 배경 (더 연한 민트 그린)
   },
   
   // 중요도에 따른 색상 (1-5)

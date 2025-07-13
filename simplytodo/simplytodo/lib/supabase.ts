@@ -54,7 +54,7 @@ export interface TodoData {
   due_date: string | null;
   category_id: string | null;
   parent_id: string | null;  // 부모 todo ID (subtask system)
-  grade: number;             // 계층 레벨 (0: 메인, 1: 서브태스크, 2: 서브-서브태스크)
+  grade: number;             // 계층 레벨 (0: 메인, 1: Subtask, 2: 서브-Subtask)
   user_id?: string;
   created_at?: string;
 }
@@ -97,7 +97,7 @@ export const todosApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('서브태스크 가져오기 오류:', error);
+      console.error('Subtask 가져오기 오류:', error);
       return [];
     }
   },
@@ -189,7 +189,7 @@ export const todosApi = {
       .select();
     
     if (error) {
-      console.error('서브태스크 추가 오류:', error);
+      console.error('Subtask 추가 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -202,7 +202,7 @@ export const todosApi = {
       .eq('parent_id', parentId);
     
     if (error) {
-      console.error('서브태스크 삭제 오류:', error);
+      console.error('Subtask 삭제 오류:', error);
       throw error;
     }
     return true;
@@ -215,7 +215,7 @@ export const todosApi = {
       .eq('parent_id', parentId);
     
     if (error) {
-      console.error('서브태스크 완료 상태 업데이트 오류:', error);
+      console.error('Subtask 완료 상태 업데이트 오류:', error);
       throw error;
     }
     return true;
@@ -334,7 +334,7 @@ export const recurringRulesApi = {
   }
 };
 
-// 서브태스크 관련 유틸리티 함수들
+// Subtask 관련 유틸리티 함수들
 export const subtaskUtils = {
   // TodoData 배열을 트리 구조로 변환
   buildTodoTree(todos: TodoData[]): TodoData[] {
@@ -363,14 +363,14 @@ export const subtaskUtils = {
     return rootTodos;
   },
 
-  // 할 일의 완료 상태 확인 (서브태스크 포함)
+  // 할 일의 완료 상태 확인 (Subtask 포함)
   isFullyCompleted(todo: TodoData & { subtasks?: TodoData[] }): boolean {
     if (!todo.completed) return false;
     if (!todo.subtasks || todo.subtasks.length === 0) return true;
     return todo.subtasks.every(subtask => this.isFullyCompleted(subtask));
   },
 
-  // 할 일의 진행률 계산 (서브태스크 포함)
+  // 할 일의 진행률 계산 (Subtask 포함)
   calculateProgress(todo: TodoData & { subtasks?: TodoData[] }): number {
     if (!todo.subtasks || todo.subtasks.length === 0) {
       return todo.completed ? 1 : 0;
@@ -402,13 +402,13 @@ export const subtaskUtils = {
     return result;
   },
 
-  // 할 일의 서브태스크 개수 계산
+  // 할 일의 Subtask 개수 계산
   countSubtasks(todo: TodoData & { subtasks?: TodoData[] }): number {
     if (!todo.subtasks || todo.subtasks.length === 0) return 0;
     return todo.subtasks.length + todo.subtasks.reduce((sum, subtask) => sum + this.countSubtasks(subtask), 0);
   },
 
-  // 할 일의 완료된 서브태스크 개수 계산
+  // 할 일의 완료된 Subtask 개수 계산
   countCompletedSubtasks(todo: TodoData & { subtasks?: TodoData[] }): number {
     if (!todo.subtasks || todo.subtasks.length === 0) return 0;
     return todo.subtasks.filter(subtask => subtask.completed).length + 

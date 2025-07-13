@@ -55,7 +55,7 @@ export default function HomeScreen() {
           createdAt: new Date(todo.created_at || Date.now()).getTime(),
           dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
           categoryId: todo.category_id,
-          parentId: todo.parent_id, // 서브태스크 지원
+          parentId: todo.parent_id, // Subtask 지원
           grade: todo.grade || 0     // 계층 레벨
         }));
         
@@ -65,12 +65,12 @@ export default function HomeScreen() {
           color: category.color
         }));
         
-        // 서브태스크 데이터 확인
+        // Subtask 데이터 확인
         console.log('전체 todos 개수:', formattedTodos.length);
         console.log('메인 todos (grade=0):', formattedTodos.filter(t => t.grade === 0).length);
-        console.log('서브태스크 (grade>0):', formattedTodos.filter(t => t.grade > 0).length);
+        console.log('Subtask (grade>0):', formattedTodos.filter(t => t.grade > 0).length);
         
-        // 서브태스크를 수동으로 연결
+        // Subtask를 수동으로 연결
         const mainTodos = formattedTodos.filter(todo => !todo.parentId);
         const withSubtasks = mainTodos.map(mainTodo => {
           const subtasks = formattedTodos.filter(todo => todo.parentId === mainTodo.id);
@@ -80,7 +80,7 @@ export default function HomeScreen() {
           };
         });
         
-        console.log('서브태스크가 연결된 todos:', withSubtasks);
+        console.log('Subtask가 연결된 todos:', withSubtasks);
         
         setTodos(withSubtasks);
         setCategories(formattedCategories.length > 0 ? formattedCategories : DefaultCategories);
@@ -137,7 +137,7 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  // Add a subtask - 서브태스크 추가
+  // Add a subtask - Subtask 추가
   const handleAddSubtask = useCallback(async (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => {
     if (!user) return;
 
@@ -166,7 +166,7 @@ export default function HomeScreen() {
           grade: newSubtask.grade || 1
         };
         
-        // 새 서브태스크를 추가하고 트리 구조 재구성
+        // 새 Subtask를 추가하고 트리 구조 재구성
         setTodos(prev => {
           const flatTodos = subtaskUtils.flattenTodoTree(prev);
           const updatedTodos = [...flatTodos, formattedSubtask];
@@ -174,8 +174,8 @@ export default function HomeScreen() {
         });
       }
     } catch (error) {
-      console.error('서브태스크 추가 오류:', error);
-      Alert.alert('서브태스크 추가 오류', '서브태스크를 추가하는데 실패했습니다.');
+      console.error('Subtask 추가 오류:', error);
+      Alert.alert('Subtask 추가 오류', 'Subtask를 추가하는데 실패했습니다.');
     }
   }, [user]);
 
@@ -188,18 +188,28 @@ export default function HomeScreen() {
       let newCompletedState = false;
       
       setTodos(prevTodos => {
-        const updatedTodos = prevTodos.map(todo => {
-          if (todo.id === id) {
-            newCompletedState = !todo.completed;
-            // 완료 상태로 변경되는 경우 최근 완료 목록에 추가
-            if (newCompletedState) {
-              setRecentlyCompletedIds(prev => [...prev, id]);
+        const updateTodoRecursive = (todos: Todo[]): Todo[] => {
+          return todos.map(todo => {
+            if (todo.id === id) {
+              newCompletedState = !todo.completed;
+              // 완료 상태로 변경되는 경우 최근 완료 목록에 추가
+              if (newCompletedState) {
+                setRecentlyCompletedIds(prev => [...prev, id]);
+              }
+              return { ...todo, completed: newCompletedState };
             }
-            return { ...todo, completed: newCompletedState };
-          }
-          return todo;
-        });
-        return updatedTodos;
+            // Subtask도 확인
+            if (todo.subtasks && todo.subtasks.length > 0) {
+              const updatedSubtasks = updateTodoRecursive(todo.subtasks);
+              if (updatedSubtasks !== todo.subtasks) {
+                return { ...todo, subtasks: updatedSubtasks };
+              }
+            }
+            return todo;
+          });
+        };
+        
+        return updateTodoRecursive(prevTodos);
       });
       
       // Supabase 업데이트
@@ -210,12 +220,23 @@ export default function HomeScreen() {
       
       // 실패 시 상태 롤백
       setTodos(prevTodos => {
-        return prevTodos.map(todo => {
-          if (todo.id === id) {
-            return { ...todo, completed: !todo.completed };
-          }
-          return todo;
-        });
+        const rollbackTodoRecursive = (todos: Todo[]): Todo[] => {
+          return todos.map(todo => {
+            if (todo.id === id) {
+              return { ...todo, completed: !todo.completed };
+            }
+            // Subtask도 확인
+            if (todo.subtasks && todo.subtasks.length > 0) {
+              const rolledBackSubtasks = rollbackTodoRecursive(todo.subtasks);
+              if (rolledBackSubtasks !== todo.subtasks) {
+                return { ...todo, subtasks: rolledBackSubtasks };
+              }
+            }
+            return todo;
+          });
+        };
+        
+        return rollbackTodoRecursive(prevTodos);
       });
     }
   }, [user]);
@@ -335,9 +356,39 @@ export default function HomeScreen() {
     if (!user) return;
     
     try {
+      // 삭제될 todo를 찾아서 백업
+      let deletedTodo: Todo | null = null;
+      
       // 로컬 상태 먼저 업데이트 (UI 반응성)
-      const removedTodo = todos.find(todo => todo.id === id);
-      setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
+      setTodos(prevTodos => {
+        const deleteTodoRecursive = (todos: Todo[]): Todo[] => {
+          return todos.filter(todo => {
+            if (todo.id === id) {
+              deletedTodo = todo;
+              return false; // 이 todo를 필터링으로 제거
+            }
+            // Subtask에서도 확인
+            if (todo.subtasks && todo.subtasks.length > 0) {
+              const filteredSubtasks = deleteTodoRecursive(todo.subtasks);
+              if (filteredSubtasks.length !== todo.subtasks.length) {
+                return { ...todo, subtasks: filteredSubtasks };
+              }
+            }
+            return todo;
+          }).map(todo => {
+            // Subtask가 변경된 경우 새 객체 반환
+            if (todo.subtasks && todo.subtasks.length > 0) {
+              const filteredSubtasks = deleteTodoRecursive(todo.subtasks);
+              if (filteredSubtasks !== todo.subtasks) {
+                return { ...todo, subtasks: filteredSubtasks };
+              }
+            }
+            return todo;
+          });
+        };
+        
+        return deleteTodoRecursive(prevTodos);
+      });
       
       // Supabase 업데이트
       await todosApi.deleteTodo(id);
@@ -345,16 +396,42 @@ export default function HomeScreen() {
       console.error('할 일 삭제 오류:', error);
       Alert.alert('할 일 삭제 오류', '할 일을 삭제하는데 실패했습니다.');
       
-      // 실패 시 상태 롤백
-      setTodos(prevTodos => {
-        const todo = todos.find(t => t.id === id);
-        if (todo) {
-          return [...prevTodos, todo];
-        }
-        return prevTodos;
-      });
+      // 실패 시 상태 롤백 - 전체 데이터를 다시 로드
+      if (!user) return;
+      
+      try {
+        const [todos, categories] = await Promise.all([
+          todosApi.getTodos(user.id),
+          categoriesApi.getCategories(user.id)
+        ]);
+        
+        const formattedTodos = todos.map(todo => ({
+          id: todo.id,
+          text: todo.text,
+          completed: todo.completed,
+          importance: todo.importance,
+          createdAt: new Date(todo.created_at || Date.now()).getTime(),
+          dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
+          categoryId: todo.category_id,
+          parentId: todo.parent_id,
+          grade: todo.grade || 0
+        }));
+        
+        const mainTodos = formattedTodos.filter(todo => !todo.parentId);
+        const withSubtasks = mainTodos.map(mainTodo => {
+          const subtasks = formattedTodos.filter(todo => todo.parentId === mainTodo.id);
+          return {
+            ...mainTodo,
+            subtasks: subtasks
+          };
+        });
+        
+        setTodos(withSubtasks);
+      } catch (reloadError) {
+        console.error('데이터 재로드 실패:', reloadError);
+      }
     }
-  }, [todos, user]);
+  }, [user]);
 
   return (
     <SafeAreaView style={styles.container}>

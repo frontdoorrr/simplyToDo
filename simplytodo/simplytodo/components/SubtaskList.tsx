@@ -55,7 +55,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* 서브태스크 요약 헤더 */}
+      {/* Subtask 요약 헤더 */}
       {totalSubtasks > 0 && (
         <TouchableOpacity
           style={styles.summaryHeader}
@@ -68,7 +68,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
               color={TodoColors.text.secondary} 
             />
             <Text style={styles.progressText}>
-              서브태스크 {completedSubtasks}/{totalSubtasks}
+              Subtask {completedSubtasks}/{totalSubtasks}
             </Text>
             {progress > 0 && (
               <View style={styles.progressBar}>
@@ -87,7 +87,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* 서브태스크 목록 */}
+      {/* Subtask 목록 */}
       {showSubtasks && totalSubtasks > 0 && (
         <View style={[styles.subtaskContainer, getIndentationStyle(parentTodo.grade + 1)]}>
           <FlatList
@@ -105,7 +105,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
                   onComplete={onToggleSubtask}
                   onDelete={onDeleteSubtask}
                 />
-                {/* 재귀적으로 서브태스크 렌더링 (서브-서브태스크 지원) */}
+                {/* 재귀적으로 Subtask 렌더링 (서브-Subtask 지원) */}
                 {item.subtasks && item.subtasks.length > 0 && (
                   <SubtaskList
                     parentTodo={item as Todo & { subtasks?: Todo[] }}
@@ -122,7 +122,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
         </View>
       )}
 
-      {/* 서브태스크 추가 버튼 */}
+      {/* Subtask 추가 버튼 */}
       {/* {canAddSubtask() && (
         <View style={[styles.addButtonContainer, getIndentationStyle(parentTodo.grade + 1)]}>
           {!showAddSubtask ? (
@@ -131,7 +131,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
               onPress={() => setShowAddSubtask(true)}
             >
               <MaterialIcons name="add" size={16} color={TodoColors.primary} />
-              <Text style={styles.addButtonText}>서브태스크 추가</Text>
+              <Text style={styles.addButtonText}>Subtask 추가</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.addSubtaskForm}>
@@ -155,7 +155,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({
       {/* 최대 레벨 도달 메시지 */}
       {!canAddSubtask() && (
         <Text style={styles.maxLevelText}>
-          최대 계층 레벨에 도달했습니다. 더 이상 서브태스크를 추가할 수 없습니다.
+          최대 계층 레벨에 도달했습니다. 더 이상 Subtask를 추가할 수 없습니다.
         </Text>
       )}
     </View>

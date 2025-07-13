@@ -9,7 +9,7 @@ import * as Notifications from 'expo-notifications';
 interface AddTodoProps {
   onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
   onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
-  mainTodos?: Todo[]; // 서브태스크를 위한 메인 할 일 목록
+  mainTodos?: Todo[]; // Subtask를 위한 메인 할 일 목록
 }
 
 // 할 일 마감 알림 예약 함수
@@ -32,7 +32,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
   const [showDateModal, setShowDateModal] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   
-  // 서브태스크 모드 상태
+  // Subtask 모드 상태
   const [isSubtaskMode, setIsSubtaskMode] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [showParentSelector, setShowParentSelector] = useState(false);
@@ -40,7 +40,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
   const handleAddTodo = () => {
     if (text.trim()) {
       if (isSubtaskMode && selectedParentId && onAddSubtask) {
-        // 서브태스크 추가
+        // Subtask 추가
         onAddSubtask(selectedParentId, text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
       } else {
         // 메인 할 일 추가
@@ -63,7 +63,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
   
   const toggleSubtaskMode = () => {
     if (mainTodos.length === 0) {
-      alert('서브태스크를 추가하려면 먼저 메인 할 일을 생성하세요.');
+      alert('Subtask를 추가하려면 먼저 메인 할 일을 생성하세요.');
       return;
     }
     
@@ -121,11 +121,11 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
 
   return (
     <View style={styles.container}>
-      {/* 서브태스크 모드 상태 표시 */}
+      {/* Subtask 모드 상태 표시 */}
       {isSubtaskMode && (
         <View style={styles.subtaskModeHeader}>
           <MaterialIcons name="subdirectory-arrow-right" size={16} color={TodoColors.primary} />
-          <Text style={styles.subtaskModeText}>서브태스크 모드</Text>
+          <Text style={styles.subtaskModeText}>Subtask 모드</Text>
           {selectedParentId && (
             <Text style={styles.selectedParentText}>
               → {getSelectedParentName()}
@@ -145,7 +145,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, mainT
           returnKeyType="done"
         />
         
-        {/* 서브태스크 모드 토글 버튼 */}
+        {/* Subtask 모드 토글 버튼 */}
         <TouchableOpacity
           style={[styles.subtaskToggle, isSubtaskMode && styles.subtaskToggleActive]}
           onPress={toggleSubtaskMode}

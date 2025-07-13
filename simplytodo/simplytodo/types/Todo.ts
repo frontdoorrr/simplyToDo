@@ -7,7 +7,7 @@ export interface Category {
   color: string;
 }
 
-// 서브태스크 관련 상수
+// Subtask 관련 상수
 export const SUBTASK_CONSTANTS = {
   MAX_GRADE: 2,
   MAIN_TODO_GRADE: 0,
@@ -15,8 +15,8 @@ export const SUBTASK_CONSTANTS = {
   SUB_SUBTASK_GRADE: 2,
   GRADE_NAMES: {
     0: '메인 할 일',
-    1: '서브태스크',
-    2: '서브-서브태스크'
+    1: 'Subtask',
+    2: '서브-Subtask'
   } as const
 };
 
@@ -52,7 +52,7 @@ export interface Todo {
   dueDate: number | null; // 마감일 추가 (타임스탬프 또는 null)
   categoryId: string | null; // 카테고리 ID 추가
   parentId: string | null; // 부모 todo ID (subtask system)
-  grade: number; // 계층 레벨 (0: 메인, 1: 서브태스크, 2: 서브-서브태스크)
+  grade: number; // 계층 레벨 (0: 메인, 1: Subtask, 2: 서브-Subtask)
   subtasks?: Todo[]; // 하위 태스크 배열 (computed field, not stored)
   // 추가할 수 있는 필드들
   // notes?: string;
@@ -96,10 +96,10 @@ export const findCategoryById = (categories: Category[] | undefined, id: string 
   return categories.find(category => category.id === id);
 };
 
-// 서브태스크 관련 유틸리티 함수들
+// Subtask 관련 유틸리티 함수들
 export const MAX_GRADE = 2; // 최대 계층 레벨
 
-// 서브태스크 생성을 위한 팩토리 함수
+// Subtask 생성을 위한 팩토리 함수
 export const createSubtask = (
   text: string,
   parentId: string,
@@ -144,14 +144,14 @@ export const buildTodoTree = (todos: Todo[]): Todo[] => {
   return rootTodos;
 };
 
-// 할 일의 완료 상태 확인 (서브태스크 포함)
+// 할 일의 완료 상태 확인 (Subtask 포함)
 export const isFullyCompleted = (todo: Todo): boolean => {
   if (!todo.completed) return false;
   if (!todo.subtasks || todo.subtasks.length === 0) return true;
   return todo.subtasks.every(subtask => isFullyCompleted(subtask));
 };
 
-// 할 일의 진행률 계산 (서브태스크 포함)
+// 할 일의 진행률 계산 (Subtask 포함)
 export const calculateProgress = (todo: Todo): number => {
   if (!todo.subtasks || todo.subtasks.length === 0) {
     return todo.completed ? 1 : 0;

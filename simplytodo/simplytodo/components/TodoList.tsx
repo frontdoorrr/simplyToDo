@@ -31,7 +31,7 @@ export const TodoList: React.FC<TodoListProps> = ({
     );
   }
 
-  // 서브태스크를 포함한 트리 구조로 변환 - 지금은 메인 todos만 표시
+  // Subtask를 포함한 트리 구조로 변환 - 지금은 메인 todos만 표시
   const filteredTodos = todos.filter(todo => !todo.parentId); // parentId가 null인 메인 todos만
   
   return (

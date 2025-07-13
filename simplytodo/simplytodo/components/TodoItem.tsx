@@ -18,8 +18,8 @@ interface TodoItemProps {
   category?: Category; // 직접 카테고리 객체를 전달받는 경우 (옵셔널)
   parentId?: string | null; // 부모 todo ID
   grade?: number; // 계층 레벨
-  subtasks?: Todo[]; // 서브태스크 배열
-  categories?: Category[]; // 카테고리 목록 (서브태스크용)
+  subtasks?: Todo[]; // Subtask 배열
+  categories?: Category[]; // 카테고리 목록 (Subtask용)
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSubtask?: (subtaskId: string) => void;
@@ -208,7 +208,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   // 디버깅 로그
   console.log(`TodoItem ${text}:`, { subtasks, hasSubtasks, grade });
   
-  // 서브태스크 진행률 계산
+  // Subtask 진행률 계산
   const getSubtaskProgress = () => {
     if (!hasSubtasks) return null;
     const completed = subtasks!.filter(st => st.completed).length;
@@ -222,8 +222,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const getHierarchyStyle = () => {
     return {
       marginLeft: grade * 16, // 각 레벨마다 16px 들여쓰기
-      borderLeftWidth: grade > 0 ? 3 : 9, // 서브태스크는 얘은 테두리
-      opacity: grade > 0 ? 0.9 : 1, // 서브태스크는 약간 투명
+      borderLeftWidth: grade > 0 ? 3 : 9, // Subtask는 얘은 테두리
+      opacity: grade > 0 ? 0.9 : 1, // Subtask는 약간 투명
     };
   };
 
@@ -250,11 +250,11 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             <View style={styles.textContainer}>
               <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
               
-              {/* 서브태스크 진행률 표시 */}
+              {/* Subtask 진행률 표시 */}
               {hasSubtasks && subtaskProgress && (
                 <View style={styles.subtaskProgressContainer}>
                   <Text style={styles.subtaskProgressText}>
-                    서브태스크: {subtaskProgress.completed}/{subtaskProgress.total}
+                    Subtask: {subtaskProgress.completed}/{subtaskProgress.total}
                   </Text>
                   <View style={styles.subtaskProgressBar}>
                     <View 
@@ -309,7 +309,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         </View>
       </Swipeable>
       
-      {/* 서브태스크 목록 표시 */}
+      {/* Subtask 목록 표시 */}
       {hasSubtasks && subtasks && categories && onToggleSubtask && onDeleteSubtask && onAddSubtask && (
         <SubtaskList
           parentTodo={{ id, text, completed, importance, createdAt: 0, dueDate, categoryId, parentId, grade, subtasks }}
