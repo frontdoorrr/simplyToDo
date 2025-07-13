@@ -10,6 +10,7 @@ import { todosApi, categoriesApi, subtaskUtils } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { resetApp } from '@/lib/appReset';
 import { aiService, createGeminiConfig } from '@/lib/ai/AIService';
+import { logger } from '@/lib/logger';
 
 // 정렬 옵션 타입 정의
 type SortOption = 'none' | 'dueDate-asc' | 'dueDate-desc' | 'importance-asc' | 'importance-desc';
@@ -48,15 +49,15 @@ export default function HomeScreen() {
           try {
             const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
             if (!apiKey) {
-              console.warn('Gemini API key not found in environment variables');
+              logger.warn('Gemini API key not found in environment variables');
               throw new Error('Gemini API key not configured');
             }
             
             const geminiConfig = createGeminiConfig(apiKey);
             await aiService.initialize(geminiConfig);
-            console.log('AI service initialized:', aiService.getCurrentProvider());
+            logger.ai('AI service initialized:', aiService.getCurrentProvider());
           } catch (aiError) {
-            console.warn('AI service initialization failed:', aiError);
+            logger.warn('AI service initialization failed:', aiError);
             // AI 기능은 선택적이므로 에러가 나도 앱은 계속 실행
           }
         }
@@ -94,7 +95,7 @@ export default function HomeScreen() {
         setTodos(todoTree);
         setCategories(formattedCategories.length > 0 ? formattedCategories : DefaultCategories);
       } catch (error) {
-        console.error('데이터 로드 실패:', error);
+        logger.error('데이터 로드 실패:', error);
         Alert.alert('데이터 로드 오류', '데이터를 불러오는데 실패했습니다.');
         setTodos([]);
         setCategories(DefaultCategories);
@@ -143,7 +144,7 @@ export default function HomeScreen() {
 
       return newTodo.id; // 새로 생성된 Todo ID 반환
     } catch (error) {
-      console.error('할 일 추가 오류:', error);
+      logger.error('할 일 추가 오류:', error);
       Alert.alert('할 일 추가 오류', '할 일을 추가하는데 실패했습니다.');
       throw error;
     }
@@ -498,35 +499,7 @@ export default function HomeScreen() {
         <Text style={styles.title}>My Tasks</Text>
         {user && (
           <View style={styles.headerActions}>
-            {__DEV__ && (
-              <TouchableOpacity 
-                onPress={() => {
-                  Alert.alert(
-                    '네트워크 오류 해결',
-                    '인증 데이터를 완전히 삭제하고 로그인을 다시 시도합니다.',
-                    [
-                      { text: '취소', style: 'cancel' },
-                      { 
-                        text: '삭제', 
-                        style: 'destructive',
-                        onPress: async () => {
-                          try {
-                            await resetApp();
-                            Alert.alert('완료', '인증 데이터가 삭제되었습니다. 로그인 화면으로 돌아갑니다.');
-                          } catch (error) {
-                            console.error('인증 데이터 삭제 실패:', error);
-                            Alert.alert('오류', '인증 데이터 삭제에 실패했습니다. 다시 시도하세요.');
-                          }
-                        }
-                      }
-                    ]
-                  );
-                }}
-                style={styles.debugButton}
-              >
-                <MaterialIcons name="refresh" size={20} color={TodoColors.delete} />
-              </TouchableOpacity>
-            )}
+            {/* 로그아웃 버튼 - Supabase 세션 종료 및 로그인 화면으로 이동 */}
             <TouchableOpacity 
               onPress={() => signOut()}
               style={styles.logoutButton}
@@ -535,29 +508,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setShowRecurringManager(true)}
-          >
-            <MaterialIcons name="repeat" size={20} color={TodoColors.primary} />
-            <Text style={styles.headerButtonText}>반복</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setShowFilterModal(true)}
-          >
-            <MaterialIcons name="filter-list" size={20} color={TodoColors.text.primary} />
-            <Text style={styles.headerButtonText}>필터</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setShowSortModal(true)}
-          >
-            <MaterialIcons name="sort" size={20} color={TodoColors.text.primary} />
-            <Text style={styles.headerButtonText}>정렬</Text>
-          </TouchableOpacity>
-        </View>
       </View>
       
       {/* 정렬 옵션 모달 */}
@@ -755,6 +705,37 @@ export default function HomeScreen() {
           onAddAISubtasks={handleAddAISubtasks}
           mainTodos={processedTodos.filter(todo => !todo.completed && !todo.parentId)}
         />
+        
+        {/* 제어 버튼들: 반복 작업 관리, 필터링, 정렬 */}
+        <View style={styles.controlButtons}>
+          {/* 반복 작업 관리 버튼 - 반복 규칙 생성/수정/삭제 */}
+          <TouchableOpacity 
+            style={styles.controlButton} 
+            onPress={() => setShowRecurringManager(true)}
+          >
+            <MaterialIcons name="repeat" size={18} color={TodoColors.primary} />
+            <Text style={styles.controlButtonText}>반복</Text>
+          </TouchableOpacity>
+          
+          {/* 필터 버튼 - 오늘/내일/지난/카테고리별 필터링 */}
+          <TouchableOpacity 
+            style={styles.controlButton} 
+            onPress={() => setShowFilterModal(true)}
+          >
+            <MaterialIcons name="filter-list" size={18} color={TodoColors.text.primary} />
+            <Text style={styles.controlButtonText}>필터</Text>
+          </TouchableOpacity>
+          
+          {/* 정렬 버튼 - 마감일/중요도 기준 오름차순/내림차순 정렬 */}
+          <TouchableOpacity 
+            style={styles.controlButton} 
+            onPress={() => setShowSortModal(true)}
+          >
+            <MaterialIcons name="sort" size={18} color={TodoColors.text.primary} />
+            <Text style={styles.controlButtonText}>정렬</Text>
+          </TouchableOpacity>
+        </View>
+        
         <View style={{ flex: 1, padding: 16 }}>
           <TodoList 
             todos={processedTodos.filter(todo => !todo.completed)} 
@@ -822,14 +803,6 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
     marginRight: 10,
   },
-  debugButton: {
-    padding: 6,
-    marginRight: 8,
-    backgroundColor: TodoColors.background.input,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: TodoColors.delete,
-  },
   logoutButton: {
     padding: 8,
   },
@@ -848,23 +821,29 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: TodoColors.text.primary,
   },
-  headerButtons: {
+  controlButtons: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 2,
+    paddingBottom: 2,
+    gap: 8,
   },
-  headerButton: {
+  controlButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: TodoColors.background.card,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
-  headerButtonText: {
+  controlButtonText: {
     marginLeft: 4,
     color: TodoColors.text.primary,
-    fontSize: 14,
+    fontSize: 12,
   },
   sortButton: {
     flexDirection: 'row',

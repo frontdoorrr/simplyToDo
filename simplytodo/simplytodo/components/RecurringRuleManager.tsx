@@ -89,7 +89,6 @@ export const RecurringRuleManager: React.FC<RecurringRuleManagerProps> = ({
     try {
       setLoading(true);
       const rulesData = await recurringRulesApi.getRecurringRules(user.id);
-      console.log('로드된 규칙들:', rulesData);
       setRules(rulesData);
     } catch (error) {
       console.error('반복 규칙 로드 오류:', error);

@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     backgroundColor: TodoColors.background.app,
-    marginBottom: 8,
+    marginBottom: 0,
   },
   subtaskModeHeader: {
     flexDirection: 'row',
