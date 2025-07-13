@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
-import { RecurringRule } from '@/types/RecurringRule';
+import { RecurringRule, CreateRecurringRuleRequest, DeleteOption, RecurringTaskInstance, RecurringType } from '@/types/RecurringRule';
 
 const supabaseUrl = 'https://sfrgigqeydzmdyyucmfl.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmdpZ3FleWR6bWR5eXVjbWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM4ODMsImV4cCI6MjA2Njc2OTg4M30.zykBzW2xhlJr_5BtTifztDqMIN9jGQted-F9MRBLw04';
@@ -296,16 +296,177 @@ export const recurringRulesApi = {
     }
   },
 
-  async addRecurringRule(rule: Omit<RecurringRule, 'id' | 'created_at' | 'updated_at'>): Promise<RecurringRule> {
-    const { data, error } = await supabase
-      .from('recurring_rules')
-      .insert([rule])
-      .select();
-    if (error) {
-      console.error('반복 규칙 추가 오류:', error);
+  async createRecurringRuleWithInstances(
+    userId: string, 
+    request: CreateRecurringRuleRequest
+  ): Promise<{ rule: RecurringRule; instances: TodoData[]; instanceCount: number }> {
+    try {
+      // 1. 반복 규칙 생성
+      const ruleData: Omit<RecurringRule, 'id' | 'created_at' | 'updated_at'> = {
+        user_id: userId,
+        name: request.name,
+        description: request.description,
+        template: request.template,
+        start_date: request.start_date,
+        end_date: request.end_date,
+        recurring_type: request.recurring_type,
+        interval: request.interval,
+        days_of_week: request.days_of_week,
+        day_of_month: request.day_of_month,
+        time_of_day: request.time_of_day,
+        is_active: true,
+        max_instances: request.max_instances || 100,
+        last_generated: new Date().toISOString()
+      };
+
+      console.log('1. 반복 규칙 데이터:', ruleData);
+      
+      const { data: ruleResult, error: ruleError } = await supabase
+        .from('recurring_rules')
+        .insert([ruleData])
+        .select();
+
+      console.log('2. 반복 규칙 생성 결과:', { ruleResult, ruleError });
+      
+      if (ruleError) {
+        console.error('반복 규칙 생성 실패:', ruleError);
+        throw ruleError;
+      }
+      const newRule = ruleResult[0] as RecurringRule;
+
+      // 2. 메인 Task 생성 (RecurringRule 대표 할 일)
+      const mainTask: TodoData = {
+        text: newRule.name,
+        completed: false,
+        importance: newRule.template.importance,
+        due_date: null, // 메인 태스크는 특정 마감일 없음
+        category_id: newRule.template.category_id,
+        user_id: userId,
+        parent_id: null,
+        grade: 0
+      };
+
+      console.log('3. 메인 Task 데이터:', mainTask);
+      
+      const { data: mainTaskResult, error: mainTaskError } = await supabase
+        .from('todos')
+        .insert([mainTask])
+        .select();
+
+      console.log('4. 메인 Task 생성 결과:', { mainTaskResult, mainTaskError });
+      
+      if (mainTaskError) {
+        console.error('메인 Task 생성 실패:', mainTaskError);
+        throw mainTaskError;
+      }
+      const createdMainTask = mainTaskResult[0];
+
+      // 3. Subtask 인스턴스들 생성
+      const instances = recurringUtils.generateTaskInstances(newRule, createdMainTask.id);
+      
+      console.log('5. 생성된 인스턴스 개수:', instances.length);
+      
+      if (instances.length > 0) {
+        console.log('6. 첫 번째 인스턴스 샘플:', instances[0]);
+      console.log('6-1. parent_id 확인:', instances[0].parent_id);
+        
+        const { data: todoResults, error: todoError } = await supabase
+          .from('todos')
+          .insert(instances)
+          .select();
+
+        console.log('7. Subtask 생성 결과:', { todoCount: todoResults?.length, todoError });
+        console.log('7-1. 생성된 Subtask parent_id 확인:', todoResults?.[0]?.parent_id);
+
+        if (todoError) {
+          console.error('Subtask 생성 실패:', todoError);
+          throw todoError;
+        }
+
+        // 4. 연결 테이블에 관계 저장 (테이블이 존재하는 경우에만)
+        try {
+          const connections = todoResults.map(todo => ({
+            todo_id: todo.id,
+            recurring_rule_id: newRule.id,
+            scheduled_date: todo.due_date,
+            is_generated: true
+          }));
+
+          const { error: connectionError } = await supabase
+            .from('recurring_task_instances')
+            .insert(connections);
+
+          if (connectionError) {
+            console.warn('연결 테이블 저장 실패 (테이블이 없을 수 있음):', connectionError);
+          }
+        } catch (connectionErr) {
+          console.warn('연결 테이블 작업 건너뜀:', connectionErr);
+        }
+
+        return { 
+          rule: newRule, 
+          instances: [createdMainTask, ...todoResults], 
+          instanceCount: todoResults.length 
+        };
+      }
+
+      return { rule: newRule, instances: [createdMainTask], instanceCount: 0 };
+    } catch (error) {
+      console.error('반복 규칙과 인스턴스 생성 오류:', error);
+      console.error('에러 상세:', JSON.stringify(error, null, 2));
       throw error;
     }
-    return data?.[0];
+  },
+
+  async deleteRecurringRule(id: string, option: DeleteOption): Promise<boolean> {
+    try {
+      if (option === 'rule_and_instances') {
+        try {
+          // 1. 연결된 모든 Todo 인스턴스 찾기
+          const { data: connections, error: connectionError } = await supabase
+            .from('recurring_task_instances')
+            .select('todo_id')
+            .eq('recurring_rule_id', id);
+
+          if (connectionError) {
+            console.warn('연결 테이블 조회 실패, 직접 삭제 시도:', connectionError);
+            // 연결 테이블 없으면 recurring_rules에 연결된 todos 찾기 (임시)
+            // 현재는 parent_id로 찾을 수 없으므로 규칙만 삭제
+          } else if (connections && connections.length > 0) {
+            // 2. Todo 인스턴스들 삭제
+            const todoIds = connections.map(conn => conn.todo_id);
+            const { error: todosError } = await supabase
+              .from('todos')
+              .delete()
+              .in('id', todoIds);
+
+            if (todosError) throw todosError;
+
+            // 3. 연결 레코드들 삭제
+            const { error: connectionsError } = await supabase
+              .from('recurring_task_instances')
+              .delete()
+              .eq('recurring_rule_id', id);
+
+            if (connectionsError) console.warn('연결 레코드 삭제 실패:', connectionsError);
+          }
+        } catch (err) {
+          console.warn('인스턴스 삭제 과정에서 오류, 규칙만 삭제:', err);
+        }
+      }
+
+      // 4. 반복 규칙 삭제
+      const { error } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('반복 규칙 삭제 오류:', error);
+      throw error;
+    }
   },
 
   async updateRecurringRule(id: string, updates: Partial<RecurringRule>): Promise<RecurringRule> {
@@ -321,25 +482,33 @@ export const recurringRulesApi = {
     return data?.[0];
   },
 
-  async deleteRecurringRule(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('recurring_rules')
-      .delete()
-      .eq('id', id);
-    if (error) {
-      console.error('반복 규칙 삭제 오류:', error);
-      throw error;
+  async getRecurringTaskInstances(ruleId: string): Promise<RecurringTaskInstance[]> {
+    try {
+      const { data, error } = await supabase
+        .from('recurring_task_instances')
+        .select('*')
+        .eq('recurring_rule_id', ruleId)
+        .order('scheduled_date', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('반복 작업 인스턴스 가져오기 오류:', error);
+      return [];
     }
-    return true;
   }
 };
 
 // Subtask 관련 유틸리티 함수들
 export const subtaskUtils = {
   // TodoData 배열을 트리 구조로 변환
-  buildTodoTree(todos: TodoData[]): TodoData[] {
-    const todoMap = new Map<string, TodoData & { subtasks: TodoData[] }>();
-    const rootTodos: (TodoData & { subtasks: TodoData[] })[] = [];
+  buildTodoTree(todos: TodoData[]): any[] {
+    const todoMap = new Map<string, any>();
+    const rootTodos: any[] = [];
+    
+    console.log('buildTodoTree 입력:', todos.length, '개');
+    console.log('Parent가 있는 todo들:', todos.filter(t => (t as any).parentId).length, '개');
+    console.log('🔍 실제 parent_id 필드 확인:', todos.slice(0, 2).map(t => ({ id: t.id?.substring(0, 8), parent_id: t.parent_id, parentId: (t as any).parentId })));
     
     // 모든 todo를 맵에 저장하고 subtasks 배열 초기화
     todos.forEach(todo => {
@@ -350,16 +519,21 @@ export const subtaskUtils = {
     todos.forEach(todo => {
       const todoWithSubtasks = todoMap.get(todo.id!)!;
       
-      if (todo.parent_id) {
-        const parent = todoMap.get(todo.parent_id);
+      if ((todo as any).parentId) {
+        const parent = todoMap.get((todo as any).parentId);
         if (parent) {
           parent.subtasks.push(todoWithSubtasks);
+          console.log(`✅ 연결 성공: "${todo.text?.substring(0, 15)}" -> "${parent.text?.substring(0, 15)}"`);
+        } else {
+          console.log(`❌ 부모를 찾을 수 없음: child="${todo.text?.substring(0, 20)}" parentId=${(todo as any).parentId?.substring(0, 8)}`);
         }
       } else {
         rootTodos.push(todoWithSubtasks);
       }
     });
     
+    const finalResult = rootTodos.map(t => ({ text: t.text?.substring(0, 20), subtaskCount: t.subtasks.length }));
+    console.log('✅ buildTodoTree 결과 (subtask 있는 것만):', finalResult.filter(t => t.subtaskCount > 0));
     return rootTodos;
   },
 
@@ -413,5 +587,189 @@ export const subtaskUtils = {
     if (!todo.subtasks || todo.subtasks.length === 0) return 0;
     return todo.subtasks.filter(subtask => subtask.completed).length + 
            todo.subtasks.reduce((sum, subtask) => sum + this.countCompletedSubtasks(subtask), 0);
+  }
+};
+
+// 반복 규칙 관련 유틸리티 함수들
+export const recurringUtils = {
+  // 반복 규칙에 따라 Task 인스턴스들 생성 (Subtask로)
+  generateTaskInstances(rule: RecurringRule, parentTaskId: string): TodoData[] {
+    const instances: TodoData[] = [];
+    const startDate = new Date(rule.start_date);
+    const endDate = rule.end_date ? new Date(rule.end_date) : this.getDefaultEndDate(startDate);
+    const maxInstances = rule.max_instances || 100;
+
+    let currentDate = new Date(startDate);
+    let instanceCount = 0;
+
+    while (currentDate <= endDate && instanceCount < maxInstances) {
+      if (this.shouldCreateInstance(rule, currentDate)) {
+        const dueDate = this.createDueDateWithTime(currentDate, rule.time_of_day);
+        
+        const instance: TodoData = {
+          text: `${dueDate.toLocaleDateString('ko-KR')} ${rule.template.text}`,
+          completed: false,
+          importance: rule.template.importance,
+          due_date: dueDate.toISOString(),
+          category_id: rule.template.category_id,
+          user_id: rule.user_id,
+          parent_id: parentTaskId,
+          grade: 1
+        };
+
+        instances.push(instance);
+        instanceCount++;
+      }
+
+      currentDate = this.getNextDate(rule, currentDate);
+    }
+
+    return instances;
+  },
+
+  // 기본 종료일 계산 (시작일로부터 1년)
+  getDefaultEndDate(startDate: Date): Date {
+    const endDate = new Date(startDate);
+    endDate.setFullYear(endDate.getFullYear() + 1);
+    return endDate;
+  },
+
+  // 특정 날짜에 인스턴스를 생성해야 하는지 확인
+  shouldCreateInstance(rule: RecurringRule, date: Date): boolean {
+    switch (rule.recurring_type) {
+      case 'daily':
+        return true; // interval은 getNextDate에서 처리
+      
+      case 'weekly':
+        if (rule.days_of_week && rule.days_of_week.length > 0) {
+          return rule.days_of_week.includes(date.getDay());
+        }
+        return true;
+      
+      case 'monthly':
+        if (rule.day_of_month) {
+          return date.getDate() === rule.day_of_month;
+        }
+        return date.getDate() === new Date(rule.start_date).getDate();
+      
+      default:
+        return true;
+    }
+  },
+
+  // 다음 날짜 계산
+  getNextDate(rule: RecurringRule, currentDate: Date): Date {
+    const nextDate = new Date(currentDate);
+
+    switch (rule.recurring_type) {
+      case 'daily':
+        nextDate.setDate(nextDate.getDate() + rule.interval);
+        break;
+      
+      case 'weekly':
+        if (rule.days_of_week && rule.days_of_week.length > 0) {
+          // 다음 요일로 이동
+          nextDate.setDate(nextDate.getDate() + 1);
+          while (!rule.days_of_week.includes(nextDate.getDay())) {
+            nextDate.setDate(nextDate.getDate() + 1);
+          }
+        } else {
+          nextDate.setDate(nextDate.getDate() + (7 * rule.interval));
+        }
+        break;
+      
+      case 'monthly':
+        nextDate.setMonth(nextDate.getMonth() + rule.interval);
+        
+        // 월말 날짜 처리 (31일 → 28/29/30일)
+        if (rule.day_of_month) {
+          const lastDayOfMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+          nextDate.setDate(Math.min(rule.day_of_month, lastDayOfMonth));
+        }
+        break;
+      
+      default:
+        nextDate.setDate(nextDate.getDate() + 1);
+    }
+
+    return nextDate;
+  },
+
+  // 날짜에 시간 추가
+  createDueDateWithTime(date: Date, timeOfDay?: string): Date {
+    const dueDate = new Date(date);
+    
+    if (timeOfDay) {
+      const [hours, minutes] = timeOfDay.split(':').map(Number);
+      dueDate.setHours(hours, minutes, 0, 0);
+    } else {
+      // 기본값: 오전 9시
+      dueDate.setHours(9, 0, 0, 0);
+    }
+
+    return dueDate;
+  },
+
+  // 반복 패턴 설명 생성
+  getRecurrenceDescription(rule: RecurringRule): string {
+    const { recurring_type, interval, days_of_week, day_of_month, time_of_day } = rule;
+    
+    let description = '';
+
+    switch (recurring_type) {
+      case 'daily':
+        description = interval === 1 ? '매일' : `${interval}일마다`;
+        break;
+      
+      case 'weekly':
+        if (days_of_week && days_of_week.length > 0) {
+          const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+          const selectedDays = days_of_week.map(day => dayNames[day]).join(', ');
+          description = interval === 1 ? `매주 ${selectedDays}요일` : `${interval}주마다 ${selectedDays}요일`;
+        } else {
+          description = interval === 1 ? '매주' : `${interval}주마다`;
+        }
+        break;
+      
+      case 'monthly':
+        const dayText = day_of_month ? `${day_of_month}일` : '같은 날';
+        description = interval === 1 ? `매월 ${dayText}` : `${interval}개월마다 ${dayText}`;
+        break;
+      
+      default:
+        description = '사용자 정의';
+    }
+
+    if (time_of_day) {
+      description += ` ${time_of_day}`;
+    }
+
+    return description;
+  },
+
+  // 다음 실행 예정일 계산
+  getNextScheduledDate(rule: RecurringRule): Date | null {
+    if (!rule.is_active) return null;
+
+    const now = new Date();
+    const startDate = new Date(rule.start_date);
+    const endDate = rule.end_date ? new Date(rule.end_date) : this.getDefaultEndDate(startDate);
+
+    if (now > endDate) return null;
+
+    let currentDate = new Date(Math.max(now.getTime(), startDate.getTime()));
+    const maxIterations = 365; // 무한 루프 방지
+    let iterations = 0;
+
+    while (currentDate <= endDate && iterations < maxIterations) {
+      if (this.shouldCreateInstance(rule, currentDate)) {
+        return this.createDueDateWithTime(currentDate, rule.time_of_day);
+      }
+      
+      currentDate = this.getNextDate(rule, currentDate);
+      iterations++;
+    }
+
+    return null;
   }
 };

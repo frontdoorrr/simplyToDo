@@ -3,6 +3,7 @@ import { StyleSheet, SafeAreaView, View, Text, StatusBar, KeyboardAvoidingView, 
 import { MaterialIcons } from '@expo/vector-icons';
 import { AddTodo } from '@/components/AddTodo';
 import { TodoList } from '@/components/TodoList';
+import { RecurringRuleManager } from '@/components/RecurringRuleManager';
 import { Todo, createTodo, Category, DefaultCategories } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
 import { todosApi, categoriesApi, subtaskUtils } from '@/lib/supabase';
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const [showSortModal, setShowSortModal] = useState(false);
   const [filterState, setFilterState] = useState<FilterState>({ option: 'all', categoryId: null });
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showRecurringManager, setShowRecurringManager] = useState(false);
 
   // Supabase로부터 데이터 로드
   const { user, signOut } = useAuth();
@@ -69,20 +71,21 @@ export default function HomeScreen() {
         console.log('전체 todos 개수:', formattedTodos.length);
         console.log('메인 todos (grade=0):', formattedTodos.filter(t => t.grade === 0).length);
         console.log('Subtask (grade>0):', formattedTodos.filter(t => t.grade > 0).length);
+        console.log('🔍 RAW 데이터에서 parent_id 있는 todos:', todos.filter(t => t.parent_id).length);
+        console.log('🔍 변환된 데이터에서 parentId 있는 todos:', formattedTodos.filter(t => t.parentId).length);
+        console.log('🔍 변환된 데이터 샘플:', formattedTodos.filter(t => t.parentId).slice(0, 2).map(t => ({ 
+          id: t.id?.substring(0, 8), 
+          parentId: t.parentId?.substring(0, 8), 
+          grade: t.grade, 
+          text: t.text?.substring(0, 30) 
+        })));
         
-        // Subtask를 수동으로 연결
-        const mainTodos = formattedTodos.filter(todo => !todo.parentId);
-        const withSubtasks = mainTodos.map(mainTodo => {
-          const subtasks = formattedTodos.filter(todo => todo.parentId === mainTodo.id);
-          return {
-            ...mainTodo,
-            subtasks: subtasks
-          };
-        });
+        // subtaskUtils를 사용하여 트리 구조 구성
+        const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
         
-        console.log('Subtask가 연결된 todos:', withSubtasks);
+        console.log('Subtask가 연결된 todos:', todoTree.map(t => ({ id: t.id, text: t.text, subtaskCount: t.subtasks?.length || 0 })));
         
-        setTodos(withSubtasks);
+        setTodos(todoTree);
         setCategories(formattedCategories.length > 0 ? formattedCategories : DefaultCategories);
       } catch (error) {
         console.error('데이터 로드 실패:', error);
@@ -417,16 +420,9 @@ export default function HomeScreen() {
           grade: todo.grade || 0
         }));
         
-        const mainTodos = formattedTodos.filter(todo => !todo.parentId);
-        const withSubtasks = mainTodos.map(mainTodo => {
-          const subtasks = formattedTodos.filter(todo => todo.parentId === mainTodo.id);
-          return {
-            ...mainTodo,
-            subtasks: subtasks
-          };
-        });
+        const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
         
-        setTodos(withSubtasks);
+        setTodos(todoTree);
       } catch (reloadError) {
         console.error('데이터 재로드 실패:', reloadError);
       }
@@ -481,16 +477,23 @@ export default function HomeScreen() {
         <View style={styles.headerButtons}>
           <TouchableOpacity 
             style={styles.headerButton} 
+            onPress={() => setShowRecurringManager(true)}
+          >
+            <MaterialIcons name="repeat" size={20} color={TodoColors.primary} />
+            <Text style={styles.headerButtonText}>반복</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerButton} 
             onPress={() => setShowFilterModal(true)}
           >
-            <MaterialIcons name="filter-list" size={24} color={TodoColors.text.primary} />
+            <MaterialIcons name="filter-list" size={20} color={TodoColors.text.primary} />
             <Text style={styles.headerButtonText}>필터</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.headerButton} 
             onPress={() => setShowSortModal(true)}
           >
-            <MaterialIcons name="sort" size={24} color={TodoColors.text.primary} />
+            <MaterialIcons name="sort" size={20} color={TodoColors.text.primary} />
             <Text style={styles.headerButtonText}>정렬</Text>
           </TouchableOpacity>
         </View>
@@ -700,6 +703,45 @@ export default function HomeScreen() {
           />
         </View>
       </KeyboardAvoidingView>
+
+      {/* 반복 작업 관리 모달 */}
+      <RecurringRuleManager
+        visible={showRecurringManager}
+        onClose={() => setShowRecurringManager(false)}
+        categories={categories}
+        onRuleCreated={(rule, instanceCount) => {
+          // 새로운 반복 작업이 생성되면 todo 목록 새로고침
+          if (user) {
+            const loadData = async () => {
+              try {
+                const [todos, categories] = await Promise.all([
+                  todosApi.getTodos(user.id),
+                  categoriesApi.getCategories(user.id)
+                ]);
+                
+                const formattedTodos = todos.map(todo => ({
+                  id: todo.id,
+                  text: todo.text,
+                  completed: todo.completed,
+                  importance: todo.importance,
+                  createdAt: new Date(todo.created_at || Date.now()).getTime(),
+                  dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
+                  categoryId: todo.category_id,
+                  parentId: todo.parent_id,
+                  grade: todo.grade || 0
+                }));
+                
+                const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
+                
+                setTodos(todoTree);
+              } catch (error) {
+                console.error('데이터 새로고침 실패:', error);
+              }
+            };
+            loadData();
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
