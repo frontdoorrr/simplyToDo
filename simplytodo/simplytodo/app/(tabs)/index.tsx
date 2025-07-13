@@ -5,8 +5,9 @@ import { AddTodo } from '@/components/AddTodo';
 import { TodoList } from '@/components/TodoList';
 import { Todo, createTodo, Category, DefaultCategories } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
-import { todosApi, categoriesApi } from '@/lib/supabase';
+import { todosApi, categoriesApi, subtaskUtils } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { resetApp } from '@/lib/appReset';
 
 // 정렬 옵션 타입 정의
 type SortOption = 'none' | 'dueDate-asc' | 'dueDate-desc' | 'importance-asc' | 'importance-desc';
@@ -29,7 +30,7 @@ export default function HomeScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Supabase로부터 데이터 로드
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -51,9 +52,11 @@ export default function HomeScreen() {
           text: todo.text,
           completed: todo.completed,
           importance: todo.importance,
-          createdAt: new Date(todo.created_at).getTime(),
+          createdAt: new Date(todo.created_at || Date.now()).getTime(),
           dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
-          categoryId: todo.category_id
+          categoryId: todo.category_id,
+          parentId: todo.parent_id, // 서브태스크 지원
+          grade: todo.grade || 0     // 계층 레벨
         }));
         
         const formattedCategories = categories.map(category => ({
@@ -62,11 +65,28 @@ export default function HomeScreen() {
           color: category.color
         }));
         
-        setTodos(formattedTodos);
+        // 서브태스크 데이터 확인
+        console.log('전체 todos 개수:', formattedTodos.length);
+        console.log('메인 todos (grade=0):', formattedTodos.filter(t => t.grade === 0).length);
+        console.log('서브태스크 (grade>0):', formattedTodos.filter(t => t.grade > 0).length);
+        
+        // 서브태스크를 수동으로 연결
+        const mainTodos = formattedTodos.filter(todo => !todo.parentId);
+        const withSubtasks = mainTodos.map(mainTodo => {
+          const subtasks = formattedTodos.filter(todo => todo.parentId === mainTodo.id);
+          return {
+            ...mainTodo,
+            subtasks: subtasks
+          };
+        });
+        
+        console.log('서브태스크가 연결된 todos:', withSubtasks);
+        
+        setTodos(withSubtasks);
         setCategories(formattedCategories.length > 0 ? formattedCategories : DefaultCategories);
       } catch (error) {
         console.error('데이터 로드 실패:', error);
-        Alert.alert('오류', '데이터를 불러오는데 실패했습니다.');
+        Alert.alert('데이터 로드 오류', '데이터를 불러오는데 실패했습니다.');
         setTodos([]);
         setCategories(DefaultCategories);
       } finally {
@@ -92,7 +112,9 @@ export default function HomeScreen() {
         due_date: dueDate ? new Date(dueDate).toISOString() : null,
         category_id: categoryId,
         completed: false,
-        user_id: user.id
+        user_id: user.id,
+        parent_id: null, // 메인 todo
+        grade: 0         // 메인 레벨
       };
       
       const newTodo = await todosApi.addTodo(todoData);
@@ -103,13 +125,57 @@ export default function HomeScreen() {
         text: newTodo.text,
         completed: newTodo.completed,
         importance: newTodo.importance,
-        createdAt: new Date(newTodo.created_at).getTime(),
+        createdAt: new Date(newTodo.created_at || Date.now()).getTime(),
         dueDate: newTodo.due_date ? new Date(newTodo.due_date).getTime() : null,
-        categoryId: newTodo.category_id
+        categoryId: newTodo.category_id,
+        parentId: newTodo.parent_id,
+        grade: newTodo.grade || 0
       }]);
     } catch (error) {
       console.error('할 일 추가 오류:', error);
-      Alert.alert('오류', '할 일을 추가하는데 실패했습니다.');
+      Alert.alert('할 일 추가 오류', '할 일을 추가하는데 실패했습니다.');
+    }
+  }, [user]);
+
+  // Add a subtask - 서브태스크 추가
+  const handleAddSubtask = useCallback(async (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => {
+    if (!user) return;
+
+    try {
+      const subtaskData = {
+        text,
+        completed: false,
+        importance,
+        due_date: dueDate ? new Date(dueDate).toISOString() : null,
+        category_id: categoryId,
+        user_id: user.id
+      };
+
+      const newSubtask = await todosApi.addSubtask(parentId, subtaskData);
+      
+      if (newSubtask) {
+        const formattedSubtask: Todo = {
+          id: newSubtask.id!,
+          text: newSubtask.text,
+          completed: newSubtask.completed,
+          importance: newSubtask.importance,
+          createdAt: new Date(newSubtask.created_at || Date.now()).getTime(),
+          dueDate: newSubtask.due_date ? new Date(newSubtask.due_date).getTime() : null,
+          categoryId: newSubtask.category_id,
+          parentId: newSubtask.parent_id,
+          grade: newSubtask.grade || 1
+        };
+        
+        // 새 서브태스크를 추가하고 트리 구조 재구성
+        setTodos(prev => {
+          const flatTodos = subtaskUtils.flattenTodoTree(prev);
+          const updatedTodos = [...flatTodos, formattedSubtask];
+          return subtaskUtils.buildTodoTree(updatedTodos);
+        });
+      }
+    } catch (error) {
+      console.error('서브태스크 추가 오류:', error);
+      Alert.alert('서브태스크 추가 오류', '서브태스크를 추가하는데 실패했습니다.');
     }
   }, [user]);
 
@@ -140,7 +206,7 @@ export default function HomeScreen() {
       await todosApi.updateTodo(id, { completed: newCompletedState });
     } catch (error) {
       console.error('할 일 상태 변경 오류:', error);
-      Alert.alert('오류', '할 일 상태를 변경하는데 실패했습니다.');
+      Alert.alert('할 일 상태 변경 오류', '할 일 상태를 변경하는데 실패했습니다.');
       
       // 실패 시 상태 롤백
       setTodos(prevTodos => {
@@ -277,7 +343,7 @@ export default function HomeScreen() {
       await todosApi.deleteTodo(id);
     } catch (error) {
       console.error('할 일 삭제 오류:', error);
-      Alert.alert('오류', '할 일을 삭제하는데 실패했습니다.');
+      Alert.alert('할 일 삭제 오류', '할 일을 삭제하는데 실패했습니다.');
       
       // 실패 시 상태 롤백
       setTodos(prevTodos => {
@@ -297,12 +363,43 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>My Tasks</Text>
         {user && (
-          <TouchableOpacity 
-            onPress={() => useAuth().signOut()}
-            style={styles.logoutButton}
-          >
-            <MaterialIcons name="logout" size={24} color={TodoColors.text.primary} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {__DEV__ && (
+              <TouchableOpacity 
+                onPress={() => {
+                  Alert.alert(
+                    '네트워크 오류 해결',
+                    '인증 데이터를 완전히 삭제하고 로그인을 다시 시도합니다.',
+                    [
+                      { text: '취소', style: 'cancel' },
+                      { 
+                        text: '삭제', 
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await resetApp();
+                            Alert.alert('완료', '인증 데이터가 삭제되었습니다. 로그인 화면으로 돌아갑니다.');
+                          } catch (error) {
+                            console.error('인증 데이터 삭제 실패:', error);
+                            Alert.alert('오류', '인증 데이터 삭제에 실패했습니다. 다시 시도하세요.');
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+                style={styles.debugButton}
+              >
+                <MaterialIcons name="refresh" size={20} color={TodoColors.delete} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              onPress={() => signOut()}
+              style={styles.logoutButton}
+            >
+              <MaterialIcons name="logout" size={24} color={TodoColors.text.primary} />
+            </TouchableOpacity>
+          </View>
         )}
         <View style={styles.headerButtons}>
           <TouchableOpacity 
@@ -511,13 +608,18 @@ export default function HomeScreen() {
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}>
-        <AddTodo onAddTodo={handleAddTodo} />
+        <AddTodo 
+          onAddTodo={handleAddTodo} 
+          onAddSubtask={handleAddSubtask}
+          mainTodos={processedTodos.filter(todo => !todo.completed && !todo.parentId)}
+        />
         <View style={{ flex: 1, padding: 16 }}>
           <TodoList 
             todos={processedTodos.filter(todo => !todo.completed)} 
             onToggle={handleToggleTodo} 
             onDelete={handleDeleteTodo}
             categories={categories}
+            onAddSubtask={handleAddSubtask}
           />
         </View>
       </KeyboardAvoidingView>
@@ -533,10 +635,22 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  logoutButton: {
-    padding: 8,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginLeft: 'auto',
     marginRight: 10,
+  },
+  debugButton: {
+    padding: 6,
+    marginRight: 8,
+    backgroundColor: TodoColors.background.input,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: TodoColors.delete,
+  },
+  logoutButton: {
+    padding: 8,
   },
   header: {
     height: 60,

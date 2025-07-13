@@ -1,155 +1,48 @@
-// React Native에서 URL 및 URLSearchParams 지원을 위한 polyfill
 import 'react-native-url-polyfill/auto';
-import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { RecurringRule } from '@/types/RecurringRule';
 
-// 플랫폼에 따라 다른 저장소 사용
-let storage;
+const supabaseUrl = 'https://sfrgigqeydzmdyyucmfl.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmdpZ3FleWR6bWR5eXVjbWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM4ODMsImV4cCI6MjA2Njc2OTg4M30.zykBzW2xhlJr_5BtTifztDqMIN9jGQted-F9MRBLw04';
 
-// React Native용 저장소
-const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-
-// 가상 저장소 - SSR이나 테스트 환경에서 사용
-// localStorage가 없는 서버사이드 렌더링 환경에서 동작하기 위함
-const memoryStorage = {
-  storage: {} as Record<string, string>,
-  async getItem(key: string) {
-    return this.storage[key] || null;
-  },
-  async setItem(key: string, value: string) {
-    this.storage[key] = value;
-  },
-  async removeItem(key: string) {
-    delete this.storage[key];
-  }
-};
-
-// 웹 환경에서 localStorage 존재 확인
-if (Platform.OS === 'web') {
-  // 웹 환경에서 localStorage가 존재하는지 확인 (서버사이드에서는 없음)
-  const hasLocalStorage = typeof window !== 'undefined' && window.localStorage !== undefined;
-  if (hasLocalStorage) {
-    // 브라우저 환경 - localStorage 사용
-    storage = {
-      async getItem(key: string) {
-        return localStorage.getItem(key);
+// 플랫폼별 스토리지 설정
+const getStorage = () => {
+  if (Platform.OS === 'web') {
+    // 웹 환경에서는 localStorage 사용
+    return {
+      getItem: (key: string) => {
+        if (typeof window !== 'undefined') {
+          return window.localStorage.getItem(key);
+        }
+        return null;
       },
-      async setItem(key: string, value: string) {
-        return localStorage.setItem(key, value);
+      setItem: (key: string, value: string) => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, value);
+        }
       },
-      async removeItem(key: string) {
-        return localStorage.removeItem(key);
-      }
+      removeItem: (key: string) => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(key);
+        }
+      },
     };
   } else {
-    // 서버사이드 렌더링 - 가상 메모리 저장소 사용
-    console.log('서버사이드 환경에서 memoryStorage 사용');
-    storage = memoryStorage;
+    // React Native 환경에서는 AsyncStorage 사용
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    return AsyncStorage;
   }
-} else {
-  // React Native 환경 - AsyncStorage 사용
-  storage = AsyncStorage;
-}
-
-// Supabase 프로젝트 URL 및 익명 키 - HTTPS 사용 확인
-const supabaseUrl = 'https://sfrgigqeydzmdyyucmfl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmdpZ3FleWR6bWR5eXVjbWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM4ODMsImV4cCI6MjA2Njc2OTg4M30.zykBzW2xhlJr_5BtTifztDqMIN9jGQted-F9MRBLw04';
-
-// iOS용 고급 fetch 래퍼 함수
-const customFetch = async (url: RequestInfo | URL, options: RequestInit = {}) => {
-  let urlString = typeof url === 'string' ? url : url.toString();
-  
-  // localhost 참조를 Mac 장치의 IP로 변경 (실제 기기에서 테스트할 때 필요)
-  if (urlString.includes('localhost') && Platform.OS === 'ios') {
-    const EXPO_IP = '172.30.107.16'; // 실제 Expo 서버 IP
-    urlString = urlString.replace('localhost', EXPO_IP);
-  }
-  
-  // iOS의 경우 추가 헤더 설정
-  const mergedHeaders = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Pragma': 'no-cache',
-    ...(
-      options.headers && typeof (options.headers as any).get === 'function'
-        ? Object.fromEntries(
-            (Array.from((options.headers as any).entries()) as [string, any][]).filter(
-              ([key, _value]) => key.toLowerCase() !== 'content-type'
-            )
-          )
-        : Object.fromEntries(
-            (Object.entries(options.headers || {}) as [string, any][]).filter(
-              ([key, _value]) => key.toLowerCase() !== 'content-type'
-            )
-          )
-    ),
-  };
-  
-  // 타임아웃 처리를 위한 AbortController
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, 60000); // 60초로 연장
-  
-  // 최대 1회 재시도
-  let attempts = 0;
-  const maxAttempts = 1;
-  let lastError;
-
-  while (attempts < maxAttempts) {
-    try {
-      console.log(`[customFetch] fetch 요청:`, { urlString, options });
-      const response = await fetch(urlString, {
-        ...options,
-        headers: mergedHeaders,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      let responseBody;
-      try {
-        responseBody = await response.clone().json();
-      } catch (jsonErr) {
-        try {
-          responseBody = await response.clone().text();
-        } catch (textErr) {
-          // 파싱 실패 시 별도 로그 남기지 않음
-        }
-      }
-      if (!response.ok) {
-        console.error(`[customFetch] 응답 실패:`, { status: response.status, responseBody });
-        throw new Error(responseBody ? JSON.stringify(responseBody) : '응답 실패');
-      }
-      return response;
-    } catch (error) {
-      lastError = error;
-      console.error(`[customFetch] 네트워크 에러:`, error);
-      attempts++;
-      if (attempts >= maxAttempts) {
-        clearTimeout(timeoutId);
-        console.error('[customFetch] 모든 재시도 실패. 마지막 에러:', lastError);
-        break;
-      }
-      // 재시도 전 대기 (로그 생략)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-  }
-  throw lastError;
 };
 
-// 기본 옵션으로 Supabase 클라이언트 생성 - 과도한 처리로 인한 문제 방지를 위해 최소한의 필요 설정만 유지
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+// 표준 Supabase 클라이언트 생성
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: storage,
+    storage: getStorage(),
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false
+    detectSessionInUrl: false,
   },
-  global: {
-    fetch: customFetch
-  }
 });
 
 // 타입 정의
@@ -160,7 +53,10 @@ export interface TodoData {
   importance: number;
   due_date: string | null;
   category_id: string | null;
+  parent_id: string | null;  // 부모 todo ID (subtask system)
+  grade: number;             // 계층 레벨 (0: 메인, 1: 서브태스크, 2: 서브-서브태스크)
   user_id?: string;
+  created_at?: string;
 }
 
 export interface CategoryData {
@@ -170,201 +66,352 @@ export interface CategoryData {
   user_id?: string;
 }
 
-import { withRetry } from './networkUtils';
-
-// 할 일 관련 함수
+// 할 일 관련 API 함수
 export const todosApi = {
   async getTodos(userId: string) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase
-          .from('todos')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        return data || [];
-      } catch (error) {
-        console.error('할 일 가져오기 오류:', error);
-        // 오류에도 불구하고 작업을 계속할 수 있도록 빈 배열 반환
-        return [];
-      }
-    });
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('user_id', userId)
+        .order('grade', { ascending: true })
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('할 일 가져오기 오류:', error);
+      return [];
+    }
+  },
+
+  async getSubtasks(userId: string, parentId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('parent_id', parentId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('서브태스크 가져오기 오류:', error);
+      return [];
+    }
+  },
+
+  async getMainTodos(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('grade', 0)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('메인 할 일 가져오기 오류:', error);
+      return [];
+    }
   },
   
   async addTodo(todo: TodoData) {
-    return withRetry(async () => {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert([todo])
-        .select();
-      
-      if (error) {
-        console.error('할 일 추가 오류:', error);
-        throw error;
-      }
-      return data?.[0];
-    });
+    const { data, error } = await supabase
+      .from('todos')
+      .insert([todo])
+      .select();
+    
+    if (error) {
+      console.error('할 일 추가 오류:', error);
+      throw error;
+    }
+    return data?.[0];
   },
   
   async updateTodo(id: string, updates: Partial<TodoData>) {
-    return withRetry(async () => {
-      const { data, error } = await supabase
-        .from('todos')
-        .update(updates)
-        .eq('id', id)
-        .select();
-      
-      if (error) {
-        console.error('할 일 업데이트 오류:', error);
-        throw error;
-      }
-      return data?.[0];
-    });
+    const { data, error } = await supabase
+      .from('todos')
+      .update(updates)
+      .eq('id', id)
+      .select();
+    
+    if (error) {
+      console.error('할 일 업데이트 오류:', error);
+      throw error;
+    }
+    return data?.[0];
   },
   
   async deleteTodo(id: string) {
-    return withRetry(async () => {
-      const { error } = await supabase
-        .from('todos')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('할 일 삭제 오류:', error);
-        throw error;
-      }
-      return true;
-    });
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('할 일 삭제 오류:', error);
+      throw error;
+    }
+    return true;
+  },
+
+  async addSubtask(parentId: string, subtaskData: Omit<TodoData, 'parent_id' | 'grade'>) {
+    // 부모의 grade 확인
+    const { data: parentData, error: parentError } = await supabase
+      .from('todos')
+      .select('grade')
+      .eq('id', parentId)
+      .single();
+    
+    if (parentError) {
+      console.error('부모 태스크 확인 오류:', parentError);
+      throw parentError;
+    }
+    
+    const newGrade = parentData.grade + 1;
+    if (newGrade > 2) {
+      throw new Error('최대 계층 레벨(2)을 초과할 수 없습니다.');
+    }
+    
+    const subtask: TodoData = {
+      ...subtaskData,
+      parent_id: parentId,
+      grade: newGrade
+    };
+    
+    const { data, error } = await supabase
+      .from('todos')
+      .insert([subtask])
+      .select();
+    
+    if (error) {
+      console.error('서브태스크 추가 오류:', error);
+      throw error;
+    }
+    return data?.[0];
+  },
+
+  async deleteSubtasks(parentId: string) {
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('parent_id', parentId);
+    
+    if (error) {
+      console.error('서브태스크 삭제 오류:', error);
+      throw error;
+    }
+    return true;
+  },
+
+  async updateSubtaskCompletion(parentId: string, completed: boolean) {
+    const { error } = await supabase
+      .from('todos')
+      .update({ completed })
+      .eq('parent_id', parentId);
+    
+    if (error) {
+      console.error('서브태스크 완료 상태 업데이트 오류:', error);
+      throw error;
+    }
+    return true;
   }
 };
 
-// 카테고리 관련 함수
+// 카테고리 관련 API 함수
 export const categoriesApi = {
   async getCategories(userId: string) {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('user_id', userId);
-        
-        if (error) throw error;
-        return data || [];
-      } catch (error) {
-        console.error('카테고리 가져오기 오류:', error);
-        // 오류에도 불구하고 작업을 계속할 수 있도록 빈 배열 반환
-        return [];
-      }
-    });
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('카테고리 가져오기 오류:', error);
+      return [];
+    }
   },
   
   async addCategory(category: CategoryData) {
-    return withRetry(async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .insert([category])
-        .select();
-      
-      if (error) {
-        console.error('카테고리 추가 오류:', error);
-        throw error;
-      }
-      return data?.[0];
-    });
+    const { data, error } = await supabase
+      .from('categories')
+      .insert([category])
+      .select();
+    
+    if (error) {
+      console.error('카테고리 추가 오류:', error);
+      throw error;
+    }
+    return data?.[0];
   },
   
   async updateCategory(id: string, updates: Partial<CategoryData>) {
-    return withRetry(async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .update(updates)
-        .eq('id', id)
-        .select();
-      
-      if (error) {
-        console.error('카테고리 업데이트 오류:', error);
-        throw error;
-      }
-      return data?.[0];
-    });
+    const { data, error } = await supabase
+      .from('categories')
+      .update(updates)
+      .eq('id', id)
+      .select();
+    
+    if (error) {
+      console.error('카테고리 업데이트 오류:', error);
+      throw error;
+    }
+    return data?.[0];
   },
   
   async deleteCategory(id: string) {
-    return withRetry(async () => {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('카테고리 삭제 오류:', error);
-        throw error;
-      }
-      return true;
-    });
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('카테고리 삭제 오류:', error);
+      throw error;
+    }
+    return true;
   }
 };
 
 export const recurringRulesApi = {
   async getRecurringRules(userId: string): Promise<RecurringRule[]> {
-    return withRetry(async () => {
-      try {
-        const { data, error } = await supabase
-          .from('recurring_rules')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-      } catch (error) {
-        console.error('반복 규칙 가져오기 오류:', error);
-        return [];
-      }
-    });
+    try {
+      const { data, error } = await supabase
+        .from('recurring_rules')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('반복 규칙 가져오기 오류:', error);
+      return [];
+    }
   },
 
   async addRecurringRule(rule: Omit<RecurringRule, 'id' | 'created_at' | 'updated_at'>): Promise<RecurringRule> {
-    return withRetry(async () => {
-      const { data, error } = await supabase
-        .from('recurring_rules')
-        .insert([rule])
-        .select();
-      if (error) {
-        console.error('반복 규칙 추가 오류:', error);
-        throw error;
-      }
-      return data?.[0];
-    });
+    const { data, error } = await supabase
+      .from('recurring_rules')
+      .insert([rule])
+      .select();
+    if (error) {
+      console.error('반복 규칙 추가 오류:', error);
+      throw error;
+    }
+    return data?.[0];
   },
 
   async updateRecurringRule(id: string, updates: Partial<RecurringRule>): Promise<RecurringRule> {
-    return withRetry(async () => {
-      const { data, error } = await supabase
-        .from('recurring_rules')
-        .update(updates)
-        .eq('id', id)
-        .select();
-      if (error) {
-        console.error('반복 규칙 업데이트 오류:', error);
-        throw error;
-      }
-      return data?.[0];
-    });
+    const { data, error } = await supabase
+      .from('recurring_rules')
+      .update(updates)
+      .eq('id', id)
+      .select();
+    if (error) {
+      console.error('반복 규칙 업데이트 오류:', error);
+      throw error;
+    }
+    return data?.[0];
   },
 
   async deleteRecurringRule(id: string): Promise<boolean> {
-    return withRetry(async () => {
-      const { error } = await supabase
-        .from('recurring_rules')
-        .delete()
-        .eq('id', id);
-      if (error) {
-        console.error('반복 규칙 삭제 오류:', error);
-        throw error;
-      }
-      return true;
+    const { error } = await supabase
+      .from('recurring_rules')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error('반복 규칙 삭제 오류:', error);
+      throw error;
+    }
+    return true;
+  }
+};
+
+// 서브태스크 관련 유틸리티 함수들
+export const subtaskUtils = {
+  // TodoData 배열을 트리 구조로 변환
+  buildTodoTree(todos: TodoData[]): TodoData[] {
+    const todoMap = new Map<string, TodoData & { subtasks: TodoData[] }>();
+    const rootTodos: (TodoData & { subtasks: TodoData[] })[] = [];
+    
+    // 모든 todo를 맵에 저장하고 subtasks 배열 초기화
+    todos.forEach(todo => {
+      todoMap.set(todo.id!, { ...todo, subtasks: [] });
     });
+    
+    // 부모-자식 관계 구성
+    todos.forEach(todo => {
+      const todoWithSubtasks = todoMap.get(todo.id!)!;
+      
+      if (todo.parent_id) {
+        const parent = todoMap.get(todo.parent_id);
+        if (parent) {
+          parent.subtasks.push(todoWithSubtasks);
+        }
+      } else {
+        rootTodos.push(todoWithSubtasks);
+      }
+    });
+    
+    return rootTodos;
+  },
+
+  // 할 일의 완료 상태 확인 (서브태스크 포함)
+  isFullyCompleted(todo: TodoData & { subtasks?: TodoData[] }): boolean {
+    if (!todo.completed) return false;
+    if (!todo.subtasks || todo.subtasks.length === 0) return true;
+    return todo.subtasks.every(subtask => this.isFullyCompleted(subtask));
+  },
+
+  // 할 일의 진행률 계산 (서브태스크 포함)
+  calculateProgress(todo: TodoData & { subtasks?: TodoData[] }): number {
+    if (!todo.subtasks || todo.subtasks.length === 0) {
+      return todo.completed ? 1 : 0;
+    }
+    
+    const totalSubtasks = todo.subtasks.length;
+    const completedSubtasks = todo.subtasks.reduce((sum, subtask) => {
+      return sum + this.calculateProgress(subtask);
+    }, 0);
+    
+    return completedSubtasks / totalSubtasks;
+  },
+
+  // 할 일 트리를 평면 배열로 변환
+  flattenTodoTree(todos: (TodoData & { subtasks?: TodoData[] })[]): TodoData[] {
+    const result: TodoData[] = [];
+    
+    const flatten = (todoList: (TodoData & { subtasks?: TodoData[] })[]) => {
+      todoList.forEach(todo => {
+        const { subtasks, ...todoData } = todo;
+        result.push(todoData);
+        if (subtasks && subtasks.length > 0) {
+          flatten(subtasks);
+        }
+      });
+    };
+    
+    flatten(todos);
+    return result;
+  },
+
+  // 할 일의 서브태스크 개수 계산
+  countSubtasks(todo: TodoData & { subtasks?: TodoData[] }): number {
+    if (!todo.subtasks || todo.subtasks.length === 0) return 0;
+    return todo.subtasks.length + todo.subtasks.reduce((sum, subtask) => sum + this.countSubtasks(subtask), 0);
+  },
+
+  // 할 일의 완료된 서브태스크 개수 계산
+  countCompletedSubtasks(todo: TodoData & { subtasks?: TodoData[] }): number {
+    if (!todo.subtasks || todo.subtasks.length === 0) return 0;
+    return todo.subtasks.filter(subtask => subtask.completed).length + 
+           todo.subtasks.reduce((sum, subtask) => sum + this.countCompletedSubtasks(subtask), 0);
   }
 };

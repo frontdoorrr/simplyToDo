@@ -64,8 +64,7 @@ export default function LoginScreen() {
         });
         
         if (error) throw error;
-        // 로그인 성공 시 메인 화면으로 이동
-        router.replace('/(tabs)');
+        // AuthContext가 자동으로 상태를 업데이트하여 라우팅 처리됨
       }
     } catch (error: any) {
       if (

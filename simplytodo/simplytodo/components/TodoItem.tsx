@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TodoColors } from '@/constants/Colors';
-import { Category, DefaultCategories } from '@/types/Todo';
+import { Category, DefaultCategories, Todo } from '@/types/Todo';
 import { categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { SubtaskList } from './SubtaskList';
 
 interface TodoItemProps {
   id: string;
@@ -15,8 +16,15 @@ interface TodoItemProps {
   dueDate: number | null; // 마감일 추가
   categoryId?: string | null; // 카테고리 ID 사용
   category?: Category; // 직접 카테고리 객체를 전달받는 경우 (옵셔널)
+  parentId?: string | null; // 부모 todo ID
+  grade?: number; // 계층 레벨
+  subtasks?: Todo[]; // 서브태스크 배열
+  categories?: Category[]; // 카테고리 목록 (서브태스크용)
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
+  onToggleSubtask?: (subtaskId: string) => void;
+  onDeleteSubtask?: (subtaskId: string) => void;
+  onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
 }
 
 export const TodoItem: React.FC<TodoItemProps> = ({
@@ -27,8 +35,15 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   dueDate,
   categoryId,
   category,
+  parentId,
+  grade = 0,
+  subtasks,
+  categories,
   onComplete,
   onDelete,
+  onToggleSubtask,
+  onDeleteSubtask,
+  onAddSubtask,
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
   const [resolvedCategory, setResolvedCategory] = useState<Category | undefined>(category);
@@ -103,20 +118,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       Alert.alert('오류', '할 일을 삭제하는데 실패했습니다.');
     }
   };
-  // Get color based on importance level (1-5)
-  const getImportanceColor = () => {
-    const baseColor = TodoColors.importance.baseColor;
-    const darkColor = TodoColors.importance.darkColor;
-    
-    // Calculate color based on importance (1-5)
-    const factor = (importance - 1) / 4; // 0 to 1
-    
-    const r = Math.round(baseColor[0] + factor * (darkColor[0] - baseColor[0]));
-    const g = Math.round(baseColor[1] + factor * (darkColor[1] - baseColor[1]));
-    const b = Math.round(baseColor[2] + factor * (darkColor[2] - baseColor[2]));
-    
-    return `rgb(${r}, ${g}, ${b})`;
-  };
 
   // 중요도에 따른 왼쪽 테두리 색상 계산
   const getBorderColor = (importance: number) => {
@@ -175,21 +176,6 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     };
   };
   
-  // 마감일 상태 확인 (마감 임박, 마감 지남)
-  const getDueDateStatus = (): { isOverdue: boolean; isUpcoming: boolean } => {
-    if (!dueDate) return { isOverdue: false, isUpcoming: false };
-    
-    const now = new Date().getTime();
-    const oneDayInMs = 24 * 60 * 60 * 1000;
-    
-    // 마감 지남
-    const isOverdue = dueDate < now;
-    
-    // 마감 임박 (24시간 이내)
-    const isUpcoming = !isOverdue && (dueDate - now) < oneDayInMs;
-    
-    return { isOverdue, isUpcoming };
-  };
 
   // Render right actions (delete)
   const renderRightActions = () => {
@@ -216,58 +202,124 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   };
 
   const formattedDueDate = formatDueDate();
+  const hasSubtasks = subtasks && subtasks.length > 0;
+  const isMainTodo = grade === 0;
+  
+  // 디버깅 로그
+  console.log(`TodoItem ${text}:`, { subtasks, hasSubtasks, grade });
+  
+  // 서브태스크 진행률 계산
+  const getSubtaskProgress = () => {
+    if (!hasSubtasks) return null;
+    const completed = subtasks!.filter(st => st.completed).length;
+    const total = subtasks!.length;
+    return { completed, total, percentage: total > 0 ? (completed / total) * 100 : 0 };
+  };
+  
+  const subtaskProgress = getSubtaskProgress();
+  
+  // 계층에 따른 스타일링
+  const getHierarchyStyle = () => {
+    return {
+      marginLeft: grade * 16, // 각 레벨마다 16px 들여쓰기
+      borderLeftWidth: grade > 0 ? 3 : 9, // 서브태스크는 얘은 테두리
+      opacity: grade > 0 ? 0.9 : 1, // 서브태스크는 약간 투명
+    };
+  };
 
   return (
-    <Swipeable
-      ref={swipeableRef}
-      friction={2}
-      rightThreshold={40}
-      leftThreshold={40}
-      overshootRight={false}
-      overshootLeft={false}
-      renderRightActions={renderRightActions}
-      renderLeftActions={renderLeftActions}>
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
-          !completed && { borderLeftWidth: 9, borderLeftColor: getBorderColor(importance) },
-          completed && styles.completedContainer,
-        ]}>
-        <View style={styles.contentContainer}>
-          <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
-          
-          <View style={styles.metaContainer}>
-            {/* 카테고리 표시 */}
-            {resolvedCategory && (
-              <View style={[styles.categoryTag, { backgroundColor: resolvedCategory.color + '20', borderColor: resolvedCategory.color }]}>
-                <View style={[styles.categoryDot, { backgroundColor: resolvedCategory.color }]} />
-                <Text style={[styles.categoryText, { color: resolvedCategory.color }]}>
-                  {resolvedCategory.name}
-                </Text>
-              </View>
-            )}
+    <View>
+      <Swipeable
+        ref={swipeableRef}
+        friction={2}
+        rightThreshold={40}
+        leftThreshold={40}
+        overshootRight={false}
+        overshootLeft={false}
+        renderRightActions={renderRightActions}
+        renderLeftActions={renderLeftActions}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
+            !completed && { borderLeftColor: getBorderColor(importance) },
+            completed && styles.completedContainer,
+            getHierarchyStyle(),
+          ]}>
+          <View style={styles.contentContainer}>
+            <View style={styles.textContainer}>
+              <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
+              
+              {/* 서브태스크 진행률 표시 */}
+              {hasSubtasks && subtaskProgress && (
+                <View style={styles.subtaskProgressContainer}>
+                  <Text style={styles.subtaskProgressText}>
+                    서브태스크: {subtaskProgress.completed}/{subtaskProgress.total}
+                  </Text>
+                  <View style={styles.subtaskProgressBar}>
+                    <View 
+                      style={[
+                        styles.subtaskProgressFill, 
+                        { width: `${subtaskProgress.percentage}%` }
+                      ]} 
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
             
-            {/* 마감일 표시 */}
-            {dueDate && formattedDueDate && (
-              <Text 
-                style={[
-                  styles.dueDate, 
-                  formattedDueDate.isPast && styles.pastDueDate,
-                  formattedDueDate.isToday && styles.todayDueDate,
-                  completed && styles.completedDueDate
-                ]}
-              >
-                {formattedDueDate.text}
-              </Text>
-            )}
+            <View style={styles.metaContainer}>
+              {/* 계층 레벨 표시 */}
+              {grade > 0 && (
+                <View style={styles.gradeTag}>
+                  <Text style={styles.gradeText}>
+                    {grade === 1 ? '서브' : '서브-서브'}
+                  </Text>
+                </View>
+              )}
+              
+              {/* 카테고리 표시 */}
+              {resolvedCategory && (
+                <View style={[styles.categoryTag, { backgroundColor: resolvedCategory.color + '20', borderColor: resolvedCategory.color }]}>
+                  <View style={[styles.categoryDot, { backgroundColor: resolvedCategory.color }]} />
+                  <Text style={[styles.categoryText, { color: resolvedCategory.color }]}>
+                    {resolvedCategory.name}
+                  </Text>
+                </View>
+              )}
+              
+              {/* 마감일 표시 */}
+              {dueDate && formattedDueDate && (
+                <Text 
+                  style={[
+                    styles.dueDate, 
+                    formattedDueDate.isPast && styles.pastDueDate,
+                    formattedDueDate.isToday && styles.todayDueDate,
+                    completed && styles.completedDueDate
+                  ]}
+                >
+                  {formattedDueDate.text}
+                </Text>
+              )}
+            </View>
           </View>
+          {completed && (
+            <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
+          )}
         </View>
-        {completed && (
-          <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
-        )}
-      </View>
-    </Swipeable>
+      </Swipeable>
+      
+      {/* 서브태스크 목록 표시 */}
+      {hasSubtasks && subtasks && categories && onToggleSubtask && onDeleteSubtask && onAddSubtask && (
+        <SubtaskList
+          parentTodo={{ id, text, completed, importance, createdAt: 0, dueDate, categoryId, parentId, grade, subtasks }}
+          categories={categories}
+          onToggleSubtask={onToggleSubtask}
+          onDeleteSubtask={onDeleteSubtask}
+          onAddSubtask={onAddSubtask}
+        />
+      )}
+    </View>
   );
 };
 
@@ -288,11 +340,49 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
+  textContainer: {
+    marginBottom: 4,
+  },
+  subtaskProgressContainer: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subtaskProgressText: {
+    fontSize: 11,
+    color: TodoColors.text.tertiary,
+    marginRight: 8,
+    minWidth: 80,
+  },
+  subtaskProgressBar: {
+    flex: 1,
+    height: 3,
+    backgroundColor: TodoColors.background.app,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  subtaskProgressFill: {
+    height: '100%',
+    backgroundColor: TodoColors.primary,
+    borderRadius: 2,
+  },
+  gradeTag: {
+    backgroundColor: TodoColors.background.app,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  gradeText: {
+    fontSize: 10,
+    color: TodoColors.text.tertiary,
+    fontWeight: '500',
+  },
   metaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: 4,
+    marginTop: 2,
   },
   categoryTag: {
     flexDirection: 'row',

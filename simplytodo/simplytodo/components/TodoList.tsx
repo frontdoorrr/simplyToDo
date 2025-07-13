@@ -4,19 +4,24 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Fad
 import { TodoItem } from './TodoItem';
 import { TodoColors } from '@/constants/Colors';
 import { Todo, Category, findCategoryById } from '@/types/Todo';
+import { subtaskUtils } from '@/lib/supabase';
 
 interface TodoListProps {
   todos: Todo[];
   categories: Category[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
+  showSubtasks?: boolean;
 }
 
 export const TodoList: React.FC<TodoListProps> = ({ 
   todos, 
   categories,
   onToggle, 
-  onDelete 
+  onDelete,
+  onAddSubtask,
+  showSubtasks = true
 }) => {
   if (todos.length === 0) {
     return (
@@ -26,9 +31,12 @@ export const TodoList: React.FC<TodoListProps> = ({
     );
   }
 
+  // 서브태스크를 포함한 트리 구조로 변환 - 지금은 메인 todos만 표시
+  const filteredTodos = todos.filter(todo => !todo.parentId); // parentId가 null인 메인 todos만
+  
   return (
     <Animated.FlatList
-      data={todos}
+      data={filteredTodos}
       keyExtractor={(item) => item.id}
       // 메모리 사용량 최적화 및 렌더링 성능 개선 옵션
       removeClippedSubviews={true}
@@ -53,8 +61,15 @@ export const TodoList: React.FC<TodoListProps> = ({
               importance={item.importance}
               dueDate={item.dueDate}
               categoryId={item.categoryId}
+              parentId={item.parentId}
+              grade={item.grade}
+              subtasks={item.subtasks}
+              categories={categories}
               onComplete={onToggle}
               onDelete={onDelete}
+              onToggleSubtask={onToggle}
+              onDeleteSubtask={onDelete}
+              onAddSubtask={onAddSubtask}
             />
           </Animated.View>
         );
