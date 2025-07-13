@@ -357,7 +357,7 @@ export const RecurringRuleManager: React.FC<RecurringRuleManagerProps> = ({
 
               {/* 카테고리 */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>카테고리</Text>
+                <Text style={styles.label}>Category</Text>
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={formData.template.category_id}

@@ -292,7 +292,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       )}
       
       <View style={styles.importanceContainer}>
-        <Text style={styles.importanceLabel}>Priority:</Text>
+        <Text style={styles.importanceLabel}>Priority :</Text>
         <View style={styles.importanceLevelsWrapper}>
           <View style={styles.importanceLevels}>
             {[1, 2, 3, 4, 5].map((level) => (

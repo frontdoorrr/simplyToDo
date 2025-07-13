@@ -156,27 +156,16 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>카테고리</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            setEditingCategory(null);
-            setNewCategoryName('');
-            setSelectedColor(CategoryColors.blue);
-            setShowModal(true);
-          }}
-        >
-          <MaterialIcons name="add" size={24} color={TodoColors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={categories}
-        keyExtractor={(item) => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
+      <View style={styles.horizontalContainer}>
+        <Text style={styles.title}>Category :</Text>
+        
+        <FlatList
+          data={categories}
+          keyExtractor={(item) => item.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryList}
+          renderItem={({ item }) => (
           <TouchableOpacity
             style={[
               styles.categoryItem,
@@ -191,18 +180,28 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
           </TouchableOpacity>
         )}
         ListFooterComponent={
+          /* 카테고리 추가 버튼 */
           <TouchableOpacity
             style={[
               styles.categoryItem,
-              { borderColor: TodoColors.text.secondary },
-              !selectedCategoryId && { backgroundColor: TodoColors.text.secondary + '20' },
+              styles.addCategoryButton,
+              { borderColor: TodoColors.primary },
             ]}
-            onPress={() => onCategorySelect(null)}
+            onPress={() => {
+              setEditingCategory(null);
+              setNewCategoryName('');
+              setSelectedColor(CategoryColors.blue);
+              setShowModal(true);
+            }}
           >
-            <Text style={styles.categoryName}>없음</Text>
+            <MaterialIcons name="add" size={16} color={TodoColors.primary} />
+            <Text style={[styles.categoryName, { color: TodoColors.primary, marginLeft: 4 }]}>
+              카테고리 추가
+            </Text>
           </TouchableOpacity>
         }
-      />
+        />
+      </View>
 
       {/* 카테고리 추가/수정 모달 */}
       <Modal
@@ -278,23 +277,34 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // 카테고리 매니저 전체 컨테이너 (Priority와의 간격을 위한 패딩 추가)
   container: {
     marginBottom: 10,
+    paddingVertical: 12,
   },
-  header: {
+  
+  // "카테고리" 라벨과 카테고리 목록을 수평 배치하는 컨테이너 (Priority와 동일한 패딩 적용)
+  horizontalContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 12,
+    paddingHorizontal: 10,
   },
+  
+  // "카테고리" 라벨 스타일 (Priority 라벨과 동일한 스타일)
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: TodoColors.text.primary,
+    fontSize: 14,
+    marginRight: 10,
+    color: '#555',
+    minWidth: 60,
   },
-  addButton: {
-    padding: 4,
+  
+  // 카테고리 목록 FlatList 스타일
+  categoryList: {
+    flex: 1,
   },
+  
+  // 개별 카테고리 아이템 (버튼 형태)
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -304,22 +314,29 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 1,
   },
+  
+  // 카테고리 색상 점 표시
   categoryDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     marginRight: 6,
   },
+  
+  // 카테고리 이름 텍스트
   categoryName: {
     fontSize: 14,
     color: TodoColors.text.primary,
   },
+  // 모달 배경 오버레이 (반투명 검은색 배경)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
+  // 모달 메인 컨테이너 (흰색 카드 스타일)
   modalContent: {
     width: '80%',
     backgroundColor: '#fff',
@@ -331,6 +348,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  
+  // 모달 제목 텍스트 ("카테고리 추가" 또는 "카테고리 수정")
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -338,6 +357,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: TodoColors.text.primary,
   },
+  
+  // 카테고리 이름 입력 필드
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -346,6 +367,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
   },
+  
+  // 색상 미리보기 버튼 (선택된 색상으로 배경이 칠해짐)
   colorPreview: {
     height: 40,
     borderRadius: 4,
@@ -353,6 +376,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  
+  // 색상 미리보기 버튼 내부의 "색상 선택" 텍스트
   colorPreviewText: {
     color: '#fff',
     fontWeight: 'bold',
@@ -361,19 +386,27 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
+  
+  // 색상 선택 영역 전체 컨테이너
   colorPickerContainer: {
     marginBottom: 16,
   },
+  
+  // "색상 선택" 제목 텍스트
   colorPickerTitle: {
     fontSize: 14,
     marginBottom: 8,
     color: TodoColors.text.primary,
   },
+  
+  // 색상 옵션들이 배치되는 그리드 레이아웃
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
+  
+  // 개별 색상 선택 아이템 (사각형 색상 버튼)
   colorItem: {
     width: '18%',
     aspectRatio: 1,
@@ -382,35 +415,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
+  
+  // 현재 선택된 색상 아이템 (진한 검은색 테두리)
   selectedColorItem: {
     borderWidth: 2,
     borderColor: '#000',
   },
+  
+  // 모달 하단 버튼들이 배치되는 가로 컨테이너
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
+  
+  // 모든 버튼의 공통 스타일
   button: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
     marginLeft: 8,
   },
+  
+  // 삭제 버튼 (빨간색 배경, 왼쪽 정렬)
   deleteButton: {
     backgroundColor: '#f44336',
     marginRight: 'auto',
   },
+  
+  // 취소 버튼 (회색 배경)
   cancelButton: {
     backgroundColor: '#f0f0f0',
   },
+  
+  // 저장/수정 버튼 (앱 테마 색상)
   saveButton: {
     backgroundColor: TodoColors.primary,
   },
+  
+  // 버튼 내부 텍스트 스타일
   buttonText: {
     fontWeight: 'bold',
     fontSize: 14,
   },
+  
+  // 저장 버튼 텍스트 (흰색)
   saveButtonText: {
     color: '#fff',
+  },
+  
+  // "카테고리 추가" 버튼 (점선 테두리, 카드 배경색)
+  addCategoryButton: {
+    backgroundColor: TodoColors.background.card,
+    borderStyle: 'dashed',
   },
 });

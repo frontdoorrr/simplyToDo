@@ -658,7 +658,7 @@ export default function HomeScreen() {
               style={[styles.sortOption, filterState.option === 'category' && styles.selectedOption]}
               onPress={() => setFilterState(prev => ({ ...prev, option: 'category' }))}
             >
-              <Text style={styles.sortOptionText}>카테고리</Text>
+              <Text style={styles.sortOptionText}>Category: </Text>
               {filterState.option === 'category' && (
                 <MaterialIcons name="check" size={20} color={TodoColors.primary} />
               )}
