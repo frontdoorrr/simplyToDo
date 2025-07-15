@@ -18,8 +18,10 @@ interface TodoItemProps {
   category?: Category; // 직접 카테고리 객체를 전달받는 경우 (옵셔널)
   parentId?: string | null; // 부모 todo ID
   grade?: number; // 계층 레벨
+  completedAt?: number | null; // 완료 날짜
   subtasks?: Todo[]; // Subtask 배열
   categories?: Category[]; // 카테고리 목록 (Subtask용)
+  showCompletedDate?: boolean; // 완료 날짜 표시 여부 (completed 탭에서만)
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSubtask?: (subtaskId: string) => void;
@@ -37,8 +39,10 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   category,
   parentId,
   grade = 0,
+  completedAt,
   subtasks,
   categories,
+  showCompletedDate = false,
   onComplete,
   onDelete,
   onToggleSubtask,
@@ -133,6 +137,25 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     const b = Math.round(baseRGB[2] + (darkRGB[2] - baseRGB[2]) * ratio);
     
     return `rgb(${r}, ${g}, ${b})`;
+  };
+  
+  // 완료 날짜 표시 형식 처리
+  const formatCompletedDate = () => {
+    if (!completedAt) return null;
+    
+    const completedDate = new Date(completedAt);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return '오늘 완료';
+    } else if (diffDays === 1) {
+      return '어제 완료';
+    } else if (diffDays < 7) {
+      return `${diffDays}일 전 완료`;
+    } else {
+      return `${completedDate.getMonth() + 1}월 ${completedDate.getDate()}일 완료`;
+    }
   };
   
   // 마감일 표시 형식 처리 - 메모리 사용량 최소화
@@ -286,6 +309,13 @@ export const TodoItem: React.FC<TodoItemProps> = ({
                 </View>
               )}
               
+              {/* 완료 날짜 표시 (completed 탭에서만) */}
+              {showCompletedDate && completed && completedAt && (
+                <Text style={styles.completedDate}>
+                  {formatCompletedDate()}
+                </Text>
+              )}
+              
               {/* 마감일 표시 */}
               {dueDate && formattedDueDate && (
                 <Text 
@@ -414,6 +444,11 @@ const styles = StyleSheet.create({
   completedDueDate: {
     textDecorationLine: 'line-through',
     opacity: 0.6,
+  },
+  completedDate: {
+    fontSize: 12,
+    color: '#4CAF50', // 완료 날짜는 녹색으로 표시
+    marginRight: 8,
   },
   text: {
     fontSize: 16,

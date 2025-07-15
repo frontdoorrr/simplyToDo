@@ -78,7 +78,8 @@ export default function HomeScreen() {
           dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
           categoryId: todo.category_id,
           parentId: todo.parent_id, // Subtask 지원
-          grade: todo.grade || 0     // 계층 레벨
+          grade: todo.grade || 0,    // 계층 레벨
+          completedAt: todo.completed_at ? new Date(todo.completed_at).getTime() : null
         }));
         
         const formattedCategories = categories.map(category => ({
@@ -139,7 +140,8 @@ export default function HomeScreen() {
         dueDate: newTodo.due_date ? new Date(newTodo.due_date).getTime() : null,
         categoryId: newTodo.category_id,
         parentId: newTodo.parent_id,
-        grade: newTodo.grade || 0
+        grade: newTodo.grade || 0,
+        completedAt: newTodo.completed_at ? new Date(newTodo.completed_at).getTime() : null
       }]);
 
       return newTodo.id; // 새로 생성된 Todo ID 반환
@@ -176,7 +178,8 @@ export default function HomeScreen() {
           dueDate: newSubtask.due_date ? new Date(newSubtask.due_date).getTime() : null,
           categoryId: newSubtask.category_id,
           parentId: newSubtask.parent_id,
-          grade: newSubtask.grade || 1
+          grade: newSubtask.grade || 1,
+          completedAt: newSubtask.completed_at ? new Date(newSubtask.completed_at).getTime() : null
         };
         
         // 새 Subtask를 추가하고 트리 구조 재구성
@@ -222,7 +225,8 @@ export default function HomeScreen() {
             dueDate: newSubtask.due_date ? new Date(newSubtask.due_date).getTime() : null,
             categoryId: newSubtask.category_id,
             parentId: newSubtask.parent_id,
-            grade: newSubtask.grade || 1
+            grade: newSubtask.grade || 1,
+            completedAt: newSubtask.completed_at ? new Date(newSubtask.completed_at).getTime() : null
           };
           
           newSubtasks.push(formattedSubtask);
@@ -261,7 +265,11 @@ export default function HomeScreen() {
               if (newCompletedState) {
                 setRecentlyCompletedIds(prev => [...prev, id]);
               }
-              return { ...todo, completed: newCompletedState };
+              return { 
+                ...todo, 
+                completed: newCompletedState,
+                completedAt: newCompletedState ? Date.now() : null
+              };
             }
             // Subtask도 확인
             if (todo.subtasks && todo.subtasks.length > 0) {
@@ -278,7 +286,10 @@ export default function HomeScreen() {
       });
       
       // Supabase 업데이트
-      await todosApi.updateTodo(id, { completed: newCompletedState });
+      await todosApi.updateTodo(id, { 
+        completed: newCompletedState,
+        completed_at: newCompletedState ? new Date().toISOString() : null
+      });
     } catch (error) {
       console.error('할 일 상태 변경 오류:', error);
       Alert.alert('할 일 상태 변경 오류', '할 일 상태를 변경하는데 실패했습니다.');
@@ -479,7 +490,8 @@ export default function HomeScreen() {
           dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
           categoryId: todo.category_id,
           parentId: todo.parent_id,
-          grade: todo.grade || 0
+          grade: todo.grade || 0,
+          completedAt: todo.completed_at ? new Date(todo.completed_at).getTime() : null
         }));
         
         const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
@@ -771,7 +783,8 @@ export default function HomeScreen() {
                   dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
                   categoryId: todo.category_id,
                   parentId: todo.parent_id,
-                  grade: todo.grade || 0
+                  grade: todo.grade || 0,
+                  completedAt: todo.completed_at ? new Date(todo.completed_at).getTime() : null
                 }));
                 
                 const todoTree = subtaskUtils.buildTodoTree(formattedTodos);

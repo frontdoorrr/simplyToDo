@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, SafeAreaView, View, Text, StatusBar } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TodoList } from '@/components/TodoList';
 import { Todo, Category } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
@@ -18,7 +17,19 @@ export default function CompletedScreen() {
     if (!isFocused || !user) return;
     const fetchCompletedTodos = async () => {
       const allTodos = await todosApi.getTodos(user.id);
-      setTodos(allTodos.filter((todo: Todo) => todo.completed));
+      const formattedTodos = allTodos.map(todo => ({
+        id: todo.id,
+        text: todo.text,
+        completed: todo.completed,
+        importance: todo.importance,
+        createdAt: new Date(todo.created_at || Date.now()).getTime(),
+        dueDate: todo.due_date ? new Date(todo.due_date).getTime() : null,
+        categoryId: todo.category_id,
+        parentId: todo.parent_id,
+        grade: todo.grade || 0,
+        completedAt: todo.completed_at ? new Date(todo.completed_at).getTime() : null
+      }));
+      setTodos(formattedTodos.filter((todo: Todo) => todo.completed));
     };
     const fetchCategories = async () => {
       const cats = await categoriesApi.getCategories(user.id);
@@ -30,19 +41,14 @@ export default function CompletedScreen() {
 
   // Delete a todo
   const handleDelete = async (id: string) => {
+    if (!user) return;
+    
     try {
-      // Get all todos first
-      const storedTodos = await AsyncStorage.getItem('todos');
-      if (storedTodos) {
-        const parsedTodos = JSON.parse(storedTodos);
-        // Remove the todo from all todos
-        const updatedTodos = parsedTodos.filter((todo: Todo) => todo.id !== id);
-        // Save updated todos
-        await AsyncStorage.setItem('todos', JSON.stringify(updatedTodos));
-        // Update state with filtered completed todos
-        const updatedCompletedTodos = updatedTodos.filter((todo: Todo) => todo.completed);
-        setTodos(updatedCompletedTodos);
-      }
+      // Supabase에서 삭제
+      await todosApi.deleteTodo(id);
+      
+      // 로컬 상태 업데이트
+      setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Failed to delete todo:', error);
     }
@@ -50,23 +56,32 @@ export default function CompletedScreen() {
 
   // Toggle todo completion status
   const handleComplete = async (id: string) => {
+    if (!user) return;
+    
     try {
-      // Get all todos first
-      const storedTodos = await AsyncStorage.getItem('todos');
-      if (storedTodos) {
-        const parsedTodos = JSON.parse(storedTodos);
-        // Toggle completion status
-        const updatedTodos = parsedTodos.map((todo: Todo) => {
-          if (todo.id === id) {
-            return { ...todo, completed: !todo.completed };
-          }
-          return todo;
-        });
-        // Save updated todos
-        await AsyncStorage.setItem('todos', JSON.stringify(updatedTodos));
-        // Update state with filtered completed todos
-        const updatedCompletedTodos = updatedTodos.filter((todo: Todo) => todo.completed);
-        setTodos(updatedCompletedTodos);
+      // 현재 todo 찾기
+      const currentTodo = todos.find(todo => todo.id === id);
+      if (!currentTodo) return;
+      
+      const newCompletedState = !currentTodo.completed;
+      
+      // Supabase 업데이트
+      await todosApi.updateTodo(id, { 
+        completed: newCompletedState,
+        completed_at: newCompletedState ? new Date().toISOString() : null
+      });
+      
+      // 로컬 상태 업데이트
+      if (newCompletedState) {
+        // 완료로 변경하는 경우는 그대로 유지
+        setTodos(prevTodos => prevTodos.map(todo => 
+          todo.id === id 
+            ? { ...todo, completed: newCompletedState, completedAt: Date.now() }
+            : todo
+        ));
+      } else {
+        // 완료 해제하는 경우는 completed 탭에서 제거
+        setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
       }
     } catch (error) {
       console.error('Failed to toggle todo completion:', error);
@@ -84,6 +99,8 @@ export default function CompletedScreen() {
         categories={categories}
         onDelete={handleDelete}
         onToggle={handleComplete}
+        showCompletedDate={true}
+        showAllTodos={true}
       />
     </SafeAreaView>
   );

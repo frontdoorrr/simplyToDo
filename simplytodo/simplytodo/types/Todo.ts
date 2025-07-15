@@ -53,6 +53,7 @@ export interface Todo {
   categoryId: string | null; // 카테고리 ID 추가
   parentId: string | null; // 부모 todo ID (subtask system)
   grade: number; // 계층 레벨 (0: 메인, 1: Subtask, 2: 서브-Subtask)
+  completedAt: number | null; // 완료 날짜 (타임스탬프 또는 null)
   subtasks?: Todo[]; // 하위 태스크 배열 (computed field, not stored)
   // 추가할 수 있는 필드들
   // notes?: string;
@@ -78,6 +79,7 @@ export const createTodo = (
     categoryId: categoryId || 'default',  // null 대신 기본값 제공
     parentId,
     grade,
+    completedAt: null,
   };
 };
 

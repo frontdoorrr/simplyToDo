@@ -13,6 +13,8 @@ interface TodoListProps {
   onDelete: (id: string) => void;
   onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
   showSubtasks?: boolean;
+  showCompletedDate?: boolean;
+  showAllTodos?: boolean; // 모든 할 일 표시 여부 (메인 + 서브태스크)
 }
 
 export const TodoList: React.FC<TodoListProps> = ({ 
@@ -21,7 +23,9 @@ export const TodoList: React.FC<TodoListProps> = ({
   onToggle, 
   onDelete,
   onAddSubtask,
-  showSubtasks = true
+  showSubtasks = true,
+  showCompletedDate = false,
+  showAllTodos = false
 }) => {
   if (todos.length === 0) {
     return (
@@ -31,8 +35,8 @@ export const TodoList: React.FC<TodoListProps> = ({
     );
   }
 
-  // Subtask를 포함한 트리 구조로 변환 - 지금은 메인 todos만 표시
-  const filteredTodos = todos.filter(todo => !todo.parentId); // parentId가 null인 메인 todos만
+  // Subtask를 포함한 트리 구조로 변환 - showAllTodos가 true면 모든 할 일, 아니면 메인 todos만
+  const filteredTodos = showAllTodos ? todos : todos.filter(todo => !todo.parentId);
   
   return (
     <Animated.FlatList
@@ -63,8 +67,10 @@ export const TodoList: React.FC<TodoListProps> = ({
               categoryId={item.categoryId}
               parentId={item.parentId}
               grade={item.grade}
+              completedAt={item.completedAt}
               subtasks={item.subtasks}
               categories={categories}
+              showCompletedDate={showCompletedDate}
               onComplete={onToggle}
               onDelete={onDelete}
               onToggleSubtask={onToggle}
