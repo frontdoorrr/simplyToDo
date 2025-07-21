@@ -7,6 +7,7 @@ import { Category, DefaultCategories, Todo } from '@/types/Todo';
 import { categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { SubtaskList } from './SubtaskList';
+import { logger } from '@/lib/logger';
 
 interface TodoItemProps {
   id: string;
@@ -86,7 +87,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             setResolvedCategory(defaultCategory || undefined);
           }
         } catch (error) {
-          console.error('카테고리 로드 오류:', error);
+          logger.error('카테고리 로드 오류:', error);
           
           // 실패 시 기본 카테고리에서 찾기
           const defaultCategory = DefaultCategories.find(c => c.id === categoryId);
@@ -105,7 +106,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
     try {
       onComplete(id);
     } catch (error) {
-      console.error('할 일 완료 처리 오류:', error);
+      logger.error('할 일 완료 처리 오류:', error);
       Alert.alert('오류', '할 일 상태를 변경하는데 실패했습니다.');
     }
   };
@@ -118,7 +119,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       }
       onDelete(id);
     } catch (error) {
-      console.error('할 일 삭제 오류:', error);
+      logger.error('할 일 삭제 오류:', error);
       Alert.alert('오류', '할 일을 삭제하는데 실패했습니다.');
     }
   };

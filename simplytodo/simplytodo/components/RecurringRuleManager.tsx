@@ -23,6 +23,7 @@ import {
 } from '@/types/RecurringRule';
 import { recurringRulesApi, recurringUtils } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/logger';
 
 interface RecurringRuleManagerProps {
   visible: boolean;
@@ -91,7 +92,7 @@ export const RecurringRuleManager: React.FC<RecurringRuleManagerProps> = ({
       const rulesData = await recurringRulesApi.getRecurringRules(user.id);
       setRules(rulesData);
     } catch (error) {
-      console.error('반복 규칙 로드 오류:', error);
+      logger.error('반복 규칙 로드 오류:', error);
       Alert.alert('오류', '반복 규칙을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
@@ -151,7 +152,7 @@ export const RecurringRuleManager: React.FC<RecurringRuleManagerProps> = ({
         onRuleCreated(result.rule, result.instanceCount);
       }
     } catch (error) {
-      console.error('반복 규칙 생성 오류:', error);
+      logger.error('반복 규칙 생성 오류:', error);
       Alert.alert('오류', '반복 규칙을 생성하는데 실패했습니다.');
     } finally {
       setLoading(false);
@@ -159,7 +160,7 @@ export const RecurringRuleManager: React.FC<RecurringRuleManagerProps> = ({
   };
 
   const handleDeleteRule = (rule: RecurringRule) => {
-    console.log('삭제 버튼 클릭됨:', rule);
+    logger.ui('삭제 버튼 클릭됨:', rule);
     
     if (Platform.OS === 'web') {
       // 웹 환경에서는 confirm 사용
@@ -199,7 +200,7 @@ export const RecurringRuleManager: React.FC<RecurringRuleManagerProps> = ({
       
       Alert.alert('삭제 완료', message);
     } catch (error) {
-      console.error('반복 규칙 삭제 오류:', error);
+      logger.error('반복 규칙 삭제 오류:', error);
       Alert.alert('오류', '반복 규칙을 삭제하는데 실패했습니다.');
     } finally {
       setLoading(false);

@@ -14,7 +14,7 @@ interface TodoListProps {
   onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
   showSubtasks?: boolean;
   showCompletedDate?: boolean;
-  showAllTodos?: boolean; // 모든 할 일 표시 여부 (메인 + 서브태스크)
+  showAllTodos?: boolean; // 모든 할 일 표시 여부 (메인 + SubTask)
 }
 
 export const TodoList: React.FC<TodoListProps> = ({ 

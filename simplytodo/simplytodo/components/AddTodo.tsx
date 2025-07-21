@@ -6,11 +6,15 @@ import { CategoryManager } from './CategoryManager';
 import { Todo } from '@/types/Todo';
 import * as Notifications from 'expo-notifications';
 import { aiService } from '@/lib/ai/AIService';
+import { recurringRulesApi } from '@/lib/supabase';
+import { CreateRecurringRuleRequest } from '@/types/RecurringRule';
+import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/logger';
 
 interface AddTodoProps {
   onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => Promise<string>; // Promise<todoId> 반환
   onAddSubtask?: (parentId: string, text: string, importance: number, dueDate: number | null, categoryId: string | null) => void;
-  onAddAISubtasks?: (parentId: string, aiSuggestions: any[]) => Promise<void>; // AI 서브태스크 추가 콜백
+  onAddAISubtasks?: (parentId: string, aiSuggestions: any[]) => Promise<void>; // AI SubTask 추가 콜백
   mainTodos?: Todo[]; // Subtask를 위한 메인 할 일 목록
 }
 
@@ -28,6 +32,7 @@ async function scheduleTodoNotification(title: string, dueDate: Date) {
 }
 
 export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAddAISubtasks, mainTodos = [] }) => {
+  const { user } = useAuth();
   const [text, setText] = useState('');
   const [importance, setImportance] = useState(3); // Default importance level (1-5)
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -128,7 +133,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
 
   const handleAIGenerate = async () => {
     if (!text.trim()) {
-      Alert.alert('알림', 'AI로 서브태스크를 생성하려면 먼저 메인 태스크를 입력해주세요.');
+      Alert.alert('알림', 'AI로 SubTask를 생성하려면 먼저 메인 태스크를 입력해주세요.');
       return;
     }
 
@@ -143,6 +148,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       const response = await aiService.generateSubtasks({
         mainTask: text.trim(),
         context: {
+          categoryId: selectedCategoryId,
           userPreferences: {
             maxSubtasks: 5,
             preferredComplexity: 'detailed'
@@ -159,41 +165,183 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
           setImportance(response.data.suggestedImportance);
         }
       } else {
-        Alert.alert('오류', response.error || 'AI 서브태스크 생성에 실패했습니다.');
+        const errorMessage = response.error || 'AI SubTask 생성에 실패했습니다.';
+        logger.ai('AI 서비스 에러:', errorMessage);
+        Alert.alert('AI 서비스 오류', errorMessage);
       }
     } catch (error) {
-      Alert.alert('오류', 'AI 서비스 연결에 실패했습니다. 네트워크 연결을 확인해주세요.');
+      logger.error('AI 서비스 연결 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : 'AI 서비스 연결에 실패했습니다.';
+      Alert.alert('연결 오류', errorMessage);
     } finally {
       setIsAIGenerating(false);
     }
   };
 
   const handleAcceptAISuggestions = async () => {
-    if (!text.trim() || !onAddAISubtasks) return;
+    logger.debug('=== AI 제안 적용 시작 ===');
+    
+    if (!text.trim() || !onAddAISubtasks || !user) {
+      logger.debug('조건 체크 실패:', { text: text.trim(), onAddAISubtasks: !!onAddAISubtasks, user: !!user });
+      return;
+    }
+
+    // 처리 중 상태 설정
+    logger.debug('로딩 상태 설정 시작');
+    setIsAIGenerating(true);
+    logger.debug('로딩 상태 설정 완료');
 
     try {
+      logger.ai('AI 제안 적용 시작:', {
+        mainTask: text.trim(),
+        suggestionsCount: aiSuggestions.length,
+        userId: user.id
+      });
+
       // 먼저 메인 태스크 추가하고 ID 받기
+      logger.debug('메인 태스크 생성 시작');
       const parentId = await onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
+      logger.debug('메인 태스크 생성 완료:', parentId);
+      
+      if (!parentId) {
+        logger.error('메인 태스크 생성 실패: parentId가 null');
+        throw new Error('메인 태스크 생성에 실패했습니다.');
+      }
 
       // 마감일이 있으면 알림 예약
       if (dueDate) {
         scheduleTodoNotification(text.trim(), dueDate);
       }
 
-      // AI 제안 서브태스크들 추가
-      await onAddAISubtasks(parentId, aiSuggestions);
+      // 반복 태스크와 일반 태스크 분리
+      const regularTasks = aiSuggestions.filter(suggestion => !suggestion.isRecurring);
+      const recurringTasks = aiSuggestions.filter(suggestion => suggestion.isRecurring);
+
+      logger.debug('태스크 분리 완료:', {
+        regularTasks: regularTasks.length,
+        recurringTasks: recurringTasks.length
+      });
+
+      // 일반 AI 제안 SubTask들 추가
+      if (regularTasks.length > 0) {
+        logger.debug('일반 서브태스크 생성 시작, 개수:', regularTasks.length);
+        logger.debug('일반 서브태스크 데이터:', regularTasks);
+        
+        logger.debug('onAddAISubtasks 함수 호출 시작');
+        await onAddAISubtasks(parentId, regularTasks);
+        logger.debug('onAddAISubtasks 함수 호출 완료');
+        
+        logger.debug('일반 서브태스크 생성 완료');
+      } else {
+        logger.debug('일반 서브태스크 없음');
+      }
+
+      // 반복 태스크들을 반복 규칙으로 생성 (임시로 비활성화)
+      let recurringRulesCreated = 0;
+      
+      // 임시로 모든 반복 태스크를 일반 서브태스크로 처리
+      logger.debug('임시로 반복 태스크를 일반 서브태스크로 처리, 개수:', recurringTasks.length);
+      
+      if (recurringTasks.length > 0) {
+        logger.debug('반복 태스크 데이터:', recurringTasks);
+        
+        const allRecurringAsRegular = recurringTasks.map(task => ({
+          ...task,
+          isRecurring: false // 반복 플래그 제거
+        }));
+        
+        logger.debug('변환된 반복 태스크:', allRecurringAsRegular);
+        
+        try {
+          logger.debug('반복 태스크를 일반 서브태스크로 처리 시작');
+          await onAddAISubtasks(parentId, allRecurringAsRegular);
+          logger.debug('반복 태스크를 일반 서브태스크로 처리 완료');
+        } catch (error) {
+          logger.error('반복 태스크 처리 실패:', error);
+        }
+      } else {
+        logger.debug('반복 태스크 없음');
+      }
+      
+      // 원래 반복 규칙 생성 로직 (임시 비활성화)
+      /*
+      for (const suggestion of recurringTasks) {
+        logger.ai('반복 태스크 처리:', suggestion);
+        
+        if (suggestion.recurrenceType && suggestion.recurrenceDays) {
+          try {
+            const recurringRequest: CreateRecurringRuleRequest = {
+              name: `${suggestion.text} - 자동 생성`,
+              description: `AI가 제안한 반복 태스크: ${text.trim()}`,
+              template: {
+                text: suggestion.text,
+                importance: suggestion.importance || 3,
+                category_id: selectedCategoryId,
+                due_time: dueDate ? `${dueDate.getHours().toString().padStart(2, '0')}:${dueDate.getMinutes().toString().padStart(2, '0')}` : undefined
+              },
+              start_date: new Date().toISOString().split('T')[0],
+              recurring_type: suggestion.recurrenceType,
+              interval: suggestion.recurrenceInterval || 1,
+              days_of_week: suggestion.recurrenceDays,
+              max_instances: 5 // 인스턴스 수를 5개로 줄임
+            };
+
+            logger.debug('반복 규칙 생성 요청:', recurringRequest);
+            await recurringRulesApi.createRecurringRuleWithInstances(user.id, recurringRequest);
+            recurringRulesCreated++;
+            logger.debug('반복 규칙 생성 완료');
+          } catch (error) {
+            logger.error('반복 태스크 생성 실패:', error);
+            // 반복 태스크 생성 실패 시 일반 서브태스크로 폴백
+            try {
+              await onAddAISubtasks(parentId, [suggestion]);
+              logger.debug('반복 태스크를 일반 서브태스크로 폴백 완료');
+            } catch (fallbackError) {
+              logger.error('폴백 서브태스크 생성도 실패:', fallbackError);
+            }
+          }
+        } else {
+          // 반복 정보가 불완전한 경우 일반 서브태스크로 처리
+          logger.debug('반복 정보 불완전, 일반 서브태스크로 처리');
+          try {
+            await onAddAISubtasks(parentId, [suggestion]);
+          } catch (fallbackError) {
+            logger.error('폴백 서브태스크 생성 실패:', fallbackError);
+          }
+        }
+      }
+      */
 
       // 상태 초기화
+      logger.debug('상태 초기화 시작');
       setText('');
       setDueDate(null);
       setSelectedCategoryId(null);
       setShowAIModal(false);
       setAiSuggestions([]);
+      logger.debug('상태 초기화 완료');
       
-      Alert.alert('완료', `메인 태스크와 ${aiSuggestions.length}개의 AI 서브태스크가 추가되었습니다!`);
+      const totalTasks = regularTasks.length + recurringTasks.length;
+      const message = recurringRulesCreated > 0 
+        ? `메인 태스크와 ${regularTasks.length}개의 일반 SubTask, ${recurringRulesCreated}개의 반복 규칙이 생성되었습니다!`
+        : `메인 태스크와 ${totalTasks}개의 AI SubTask가 추가되었습니다!`;
+      
+      logger.ai('AI 제안 적용 완료:', message);
+      logger.debug('Alert 표시 시작');
+      Alert.alert('완료', message);
+      logger.debug('Alert 표시 완료');
     } catch (error) {
-      Alert.alert('오류', 'AI 서브태스크 추가 중 오류가 발생했습니다.');
-      console.error('AI subtask creation error:', error);
+      logger.error('AI subtask creation error:', error);
+      Alert.alert('오류', `AI SubTask 추가 중 오류가 발생했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // 오류 시에도 모달 닫기
+      setShowAIModal(false);
+    } finally {
+      // 처리 완료 후 로딩 상태 해제
+      logger.debug('finally 블록 진입');
+      setIsAIGenerating(false);
+      logger.debug('로딩 상태 해제 완료');
+      logger.debug('=== AI 제안 적용 종료 ===');
     }
   };
 
@@ -386,7 +534,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
           <View style={styles.aiModalContainer} onStartShouldSetResponder={() => true}>
             <View style={styles.aiModalHeader}>
               <MaterialIcons name="auto-awesome" size={24} color={TodoColors.primary} />
-              <Text style={styles.aiModalTitle}>AI 서브태스크 제안</Text>
+              <Text style={styles.aiModalTitle}>AI SubTask 제안</Text>
               <TouchableOpacity onPress={() => setShowAIModal(false)}>
                 <MaterialIcons name="close" size={24} color={TodoColors.text.secondary} />
               </TouchableOpacity>
@@ -398,7 +546,18 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
               {aiSuggestions.map((suggestion, index) => (
                 <View key={index} style={styles.aiSuggestionItem}>
                   <View style={styles.aiSuggestionHeader}>
-                    <Text style={styles.aiSuggestionText}>{suggestion.text}</Text>
+                    <View style={styles.aiSuggestionTextContainer}>
+                      <Text style={styles.aiSuggestionText}>{suggestion.text}</Text>
+                      {suggestion.isRecurring && (
+                        <View style={styles.recurringBadge}>
+                          <MaterialIcons name="repeat" size={14} color="#fff" />
+                          <Text style={styles.recurringText}>
+                            {suggestion.recurrenceType === 'daily' ? '매일' : 
+                             suggestion.recurrenceType === 'weekly' ? '매주' : '반복'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.aiSuggestionMeta}>
                       <Text style={styles.aiSuggestionImportance}>
                         중요도: {suggestion.importance || 3}
@@ -423,10 +582,13 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.aiModalAcceptButton}
+                style={[styles.aiModalAcceptButton, isAIGenerating && styles.aiModalAcceptButtonLoading]}
                 onPress={handleAcceptAISuggestions}
+                disabled={isAIGenerating}
               >
-                <Text style={styles.aiModalAcceptText}>적용하기</Text>
+                <Text style={styles.aiModalAcceptText}>
+                  {isAIGenerating ? '처리 중...' : '적용하기'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -722,11 +884,31 @@ const styles = StyleSheet.create({
   aiSuggestionHeader: {
     flexDirection: 'column',
   },
+  aiSuggestionTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   aiSuggestionText: {
     fontSize: 15,
     color: TodoColors.text.primary,
     fontWeight: '500',
-    marginBottom: 8,
+    flex: 1,
+  },
+  recurringBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: TodoColors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  recurringText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '600',
+    marginLeft: 2,
   },
   aiSuggestionMeta: {
     flexDirection: 'row',
@@ -764,6 +946,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: TodoColors.primary,
     alignItems: 'center',
+  },
+  aiModalAcceptButtonLoading: {
+    backgroundColor: TodoColors.text.secondary,
+    opacity: 0.7,
   },
   aiModalAcceptText: {
     color: '#fff',

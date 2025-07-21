@@ -15,6 +15,7 @@ import { TodoColors } from '@/constants/Colors';
 import { v4 as uuidv4 } from 'uuid';
 import { categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/logger';
 
 interface CategoryManagerProps {
   onCategorySelect: (categoryId: string | null) => void;
@@ -42,7 +43,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
         const data = await categoriesApi.getCategories(userId);
         setCategories(data);
       } catch (error) {
-        console.error('카테고리 불러오기 실패:', error);
+        logger.error('카테고리 불러오기 실패:', error);
       }
     };
     loadCategories();
