@@ -2,6 +2,7 @@
  * 네트워크 연결 상태를 확인하고 오류를 처리하기 위한 유틸리티 함수
  */
 import { Alert } from 'react-native';
+import { logger } from '@/lib/logger';
 
 // 네트워크 에러 타입 정의
 export interface NetworkError {
@@ -79,11 +80,11 @@ export async function withRetry<T>(
       const networkError = analyzeError(error);
       retries++;
       
-      console.log(`[withRetry] Attempt ${retries}/${maxRetries} failed:`, networkError);
+      logger.network(`[withRetry] Attempt ${retries}/${maxRetries} failed:`, networkError);
       
       // 재시도 불가능한 에러거나 최대 재시도 횟수 도달
       if (!networkError.isRetryable || retries >= maxRetries) {
-        console.error(`Operation failed after ${retries} retries:`, error);
+        logger.error(`Operation failed after ${retries} retries:`, error);
         
         // 사용자에게 알림 표시 (옵션)
         if (showAlert) {
@@ -99,7 +100,7 @@ export async function withRetry<T>(
         throw error;
       }
       
-      console.log(`[withRetry] Retrying in ${retryDelay * Math.pow(2, retries - 1)}ms...`);
+      logger.network(`[withRetry] Retrying in ${retryDelay * Math.pow(2, retries - 1)}ms...`);
       // 지수 백오프를 사용하여 재시도 대기 시간 증가
       await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, retries - 1)));
     }
@@ -115,7 +116,7 @@ export async function checkNetworkConnection(): Promise<boolean> {
     });
     return response.ok;
   } catch (error) {
-    console.log('네트워크 연결 확인 실패:', error);
+    logger.network('네트워크 연결 확인 실패:', error);
     return false;
   }
 }

@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { RecurringRule, CreateRecurringRuleRequest, DeleteOption, RecurringTaskInstance, RecurringType } from '@/types/RecurringRule';
+import { logger } from './logger';
 
 const supabaseUrl = 'https://sfrgigqeydzmdyyucmfl.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmdpZ3FleWR6bWR5eXVjbWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExOTM4ODMsImV4cCI6MjA2Njc2OTg4M30.zykBzW2xhlJr_5BtTifztDqMIN9jGQted-F9MRBLw04';
@@ -80,7 +81,7 @@ export const todosApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('할 일 가져오기 오류:', error);
+      logger.error('할 일 가져오기 오류:', error);
       return [];
     }
   },
@@ -97,7 +98,7 @@ export const todosApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Subtask 가져오기 오류:', error);
+      logger.error('Subtask 가져오기 오류:', error);
       return [];
     }
   },
@@ -114,7 +115,7 @@ export const todosApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('메인 할 일 가져오기 오류:', error);
+      logger.error('메인 할 일 가져오기 오류:', error);
       return [];
     }
   },
@@ -126,7 +127,7 @@ export const todosApi = {
       .select();
     
     if (error) {
-      console.error('할 일 추가 오류:', error);
+      logger.error('할 일 추가 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -140,7 +141,7 @@ export const todosApi = {
       .select();
     
     if (error) {
-      console.error('할 일 업데이트 오류:', error);
+      logger.error('할 일 업데이트 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -153,7 +154,7 @@ export const todosApi = {
       .eq('id', id);
     
     if (error) {
-      console.error('할 일 삭제 오류:', error);
+      logger.error('할 일 삭제 오류:', error);
       throw error;
     }
     return true;
@@ -168,7 +169,7 @@ export const todosApi = {
       .single();
     
     if (parentError) {
-      console.error('부모 태스크 확인 오류:', parentError);
+      logger.error('부모 태스크 확인 오류:', parentError);
       throw parentError;
     }
     
@@ -189,7 +190,7 @@ export const todosApi = {
       .select();
     
     if (error) {
-      console.error('Subtask 추가 오류:', error);
+      logger.error('Subtask 추가 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -202,7 +203,7 @@ export const todosApi = {
       .eq('parent_id', parentId);
     
     if (error) {
-      console.error('Subtask 삭제 오류:', error);
+      logger.error('Subtask 삭제 오류:', error);
       throw error;
     }
     return true;
@@ -215,7 +216,7 @@ export const todosApi = {
       .eq('parent_id', parentId);
     
     if (error) {
-      console.error('Subtask 완료 상태 업데이트 오류:', error);
+      logger.error('Subtask 완료 상태 업데이트 오류:', error);
       throw error;
     }
     return true;
@@ -234,7 +235,7 @@ export const categoriesApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('카테고리 가져오기 오류:', error);
+      logger.error('카테고리 가져오기 오류:', error);
       return [];
     }
   },
@@ -246,7 +247,7 @@ export const categoriesApi = {
       .select();
     
     if (error) {
-      console.error('카테고리 추가 오류:', error);
+      logger.error('카테고리 추가 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -260,7 +261,7 @@ export const categoriesApi = {
       .select();
     
     if (error) {
-      console.error('카테고리 업데이트 오류:', error);
+      logger.error('카테고리 업데이트 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -273,7 +274,7 @@ export const categoriesApi = {
       .eq('id', id);
     
     if (error) {
-      console.error('카테고리 삭제 오류:', error);
+      logger.error('카테고리 삭제 오류:', error);
       throw error;
     }
     return true;
@@ -291,7 +292,7 @@ export const recurringRulesApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('반복 규칙 가져오기 오류:', error);
+      logger.error('반복 규칙 가져오기 오류:', error);
       return [];
     }
   },
@@ -319,17 +320,17 @@ export const recurringRulesApi = {
         last_generated: new Date().toISOString()
       };
 
-      console.log('1. 반복 규칙 데이터:', ruleData);
+      logger.db('1. 반복 규칙 데이터:', ruleData);
       
       const { data: ruleResult, error: ruleError } = await supabase
         .from('recurring_rules')
         .insert([ruleData])
         .select();
 
-      console.log('2. 반복 규칙 생성 결과:', { ruleResult, ruleError });
+      logger.db('2. 반복 규칙 생성 결과:', { ruleResult, ruleError });
       
       if (ruleError) {
-        console.error('반복 규칙 생성 실패:', ruleError);
+        logger.error('반복 규칙 생성 실패:', ruleError);
         throw ruleError;
       }
       const newRule = ruleResult[0] as RecurringRule;
@@ -346,17 +347,17 @@ export const recurringRulesApi = {
         grade: 0
       };
 
-      console.log('3. 메인 Task 데이터:', mainTask);
+      logger.db('3. 메인 Task 데이터:', mainTask);
       
       const { data: mainTaskResult, error: mainTaskError } = await supabase
         .from('todos')
         .insert([mainTask])
         .select();
 
-      console.log('4. 메인 Task 생성 결과:', { mainTaskResult, mainTaskError });
+      logger.db('4. 메인 Task 생성 결과:', { mainTaskResult, mainTaskError });
       
       if (mainTaskError) {
-        console.error('메인 Task 생성 실패:', mainTaskError);
+        logger.error('메인 Task 생성 실패:', mainTaskError);
         throw mainTaskError;
       }
       const createdMainTask = mainTaskResult[0];
@@ -364,22 +365,22 @@ export const recurringRulesApi = {
       // 3. Subtask 인스턴스들 생성
       const instances = recurringUtils.generateTaskInstances(newRule, createdMainTask.id);
       
-      console.log('5. 생성된 인스턴스 개수:', instances.length);
+      logger.db('5. 생성된 인스턴스 개수:', instances.length);
       
       if (instances.length > 0) {
-        console.log('6. 첫 번째 인스턴스 샘플:', instances[0]);
-      console.log('6-1. parent_id 확인:', instances[0].parent_id);
+        logger.db('6. 첫 번째 인스턴스 샘플:', instances[0]);
+      logger.db('6-1. parent_id 확인:', instances[0].parent_id);
         
         const { data: todoResults, error: todoError } = await supabase
           .from('todos')
           .insert(instances)
           .select();
 
-        console.log('7. Subtask 생성 결과:', { todoCount: todoResults?.length, todoError });
-        console.log('7-1. 생성된 Subtask parent_id 확인:', todoResults?.[0]?.parent_id);
+        logger.db('7. Subtask 생성 결과:', { todoCount: todoResults?.length, todoError });
+        logger.db('7-1. 생성된 Subtask parent_id 확인:', todoResults?.[0]?.parent_id);
 
         if (todoError) {
-          console.error('Subtask 생성 실패:', todoError);
+          logger.error('Subtask 생성 실패:', todoError);
           throw todoError;
         }
 
@@ -397,10 +398,10 @@ export const recurringRulesApi = {
             .insert(connections);
 
           if (connectionError) {
-            console.warn('연결 테이블 저장 실패 (테이블이 없을 수 있음):', connectionError);
+            logger.warn('연결 테이블 저장 실패 (테이블이 없을 수 있음):', connectionError);
           }
         } catch (connectionErr) {
-          console.warn('연결 테이블 작업 건너뜀:', connectionErr);
+          logger.warn('연결 테이블 작업 건너뜀:', connectionErr);
         }
 
         return { 
@@ -412,8 +413,8 @@ export const recurringRulesApi = {
 
       return { rule: newRule, instances: [createdMainTask], instanceCount: 0 };
     } catch (error) {
-      console.error('반복 규칙과 인스턴스 생성 오류:', error);
-      console.error('에러 상세:', JSON.stringify(error, null, 2));
+      logger.error('반복 규칙과 인스턴스 생성 오류:', error);
+      logger.error('에러 상세:', JSON.stringify(error, null, 2));
       throw error;
     }
   },
@@ -429,7 +430,7 @@ export const recurringRulesApi = {
             .eq('recurring_rule_id', id);
 
           if (connectionError) {
-            console.warn('연결 테이블 조회 실패, 직접 삭제 시도:', connectionError);
+            logger.warn('연결 테이블 조회 실패, 직접 삭제 시도:', connectionError);
             // 연결 테이블 없으면 recurring_rules에 연결된 todos 찾기 (임시)
             // 현재는 parent_id로 찾을 수 없으므로 규칙만 삭제
           } else if (connections && connections.length > 0) {
@@ -448,10 +449,10 @@ export const recurringRulesApi = {
               .delete()
               .eq('recurring_rule_id', id);
 
-            if (connectionsError) console.warn('연결 레코드 삭제 실패:', connectionsError);
+            if (connectionsError) logger.warn('연결 레코드 삭제 실패:', connectionsError);
           }
         } catch (err) {
-          console.warn('인스턴스 삭제 과정에서 오류, 규칙만 삭제:', err);
+          logger.warn('인스턴스 삭제 과정에서 오류, 규칙만 삭제:', err);
         }
       }
 
@@ -464,7 +465,7 @@ export const recurringRulesApi = {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('반복 규칙 삭제 오류:', error);
+      logger.error('반복 규칙 삭제 오류:', error);
       throw error;
     }
   },
@@ -476,7 +477,7 @@ export const recurringRulesApi = {
       .eq('id', id)
       .select();
     if (error) {
-      console.error('반복 규칙 업데이트 오류:', error);
+      logger.error('반복 규칙 업데이트 오류:', error);
       throw error;
     }
     return data?.[0];
@@ -493,7 +494,7 @@ export const recurringRulesApi = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('반복 작업 인스턴스 가져오기 오류:', error);
+      logger.error('반복 작업 인스턴스 가져오기 오류:', error);
       return [];
     }
   }
