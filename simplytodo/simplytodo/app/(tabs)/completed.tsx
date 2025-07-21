@@ -7,6 +7,7 @@ import { TodoColors } from '@/constants/Colors';
 import { useIsFocused } from '@react-navigation/native';
 import { todosApi, categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/logger';
 
 export default function CompletedScreen() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -78,7 +79,7 @@ export default function CompletedScreen() {
       // 로컬 상태 업데이트
       setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
     } catch (error) {
-      console.error('Failed to delete todo:', error);
+      logger.error('Failed to delete todo:', error);
     }
   };
 
@@ -112,7 +113,7 @@ export default function CompletedScreen() {
         setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
       }
     } catch (error) {
-      console.error('Failed to toggle todo completion:', error);
+      logger.error('Failed to toggle todo completion:', error);
     }
   };
 

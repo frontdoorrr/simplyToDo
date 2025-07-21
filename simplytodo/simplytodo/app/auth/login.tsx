@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { DefaultCategories } from '@/types/Todo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TodoColors } from '@/constants/Colors';
+import { logger } from '@/lib/logger';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -25,9 +26,9 @@ export default function LoginScreen() {
       });
       
       await Promise.all(promises);
-      console.log('기본 카테고리 생성 완료');
+      logger.auth('기본 카테고리 생성 완료');
     } catch (error) {
-      console.error('기본 카테고리 생성 오류:', error);
+      logger.error('기본 카테고리 생성 오류:', error);
     }
   };
   

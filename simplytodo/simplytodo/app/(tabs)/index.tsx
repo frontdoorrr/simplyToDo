@@ -190,19 +190,19 @@ export default function HomeScreen() {
         });
       }
     } catch (error) {
-      console.error('Subtask 추가 오류:', error);
+      logger.error('Subtask 추가 오류:', error);
       Alert.alert('Subtask 추가 오류', 'Subtask를 추가하는데 실패했습니다.');
     }
   }, [user]);
 
-  // Add AI-generated subtasks - AI가 제안한 서브태스크들을 일괄 추가
+  // Add AI-generated subtasks - AI가 제안한 SubTask들을 일괄 추가
   const handleAddAISubtasks = useCallback(async (parentId: string, aiSuggestions: any[]) => {
     if (!user || !aiSuggestions.length) return;
 
     try {
       const newSubtasks: Todo[] = [];
       
-      // AI 제안 서브태스크들을 순차적으로 추가
+      // AI 제안 SubTask들을 순차적으로 추가
       for (const suggestion of aiSuggestions) {
         const subtaskData = {
           text: suggestion.text,
@@ -233,7 +233,7 @@ export default function HomeScreen() {
         }
       }
 
-      // 모든 새 서브태스크를 추가하고 트리 구조 재구성
+      // 모든 새 SubTask를 추가하고 트리 구조 재구성
       if (newSubtasks.length > 0) {
         setTodos(prev => {
           const flatTodos = subtaskUtils.flattenTodoTree(prev);
@@ -242,8 +242,8 @@ export default function HomeScreen() {
         });
       }
     } catch (error) {
-      console.error('AI 서브태스크 추가 오류:', error);
-      Alert.alert('AI 서브태스크 추가 오류', 'AI 서브태스크를 추가하는데 실패했습니다.');
+      logger.error('AI SubTask 추가 오류:', error);
+      Alert.alert('AI SubTask 추가 오류', 'AI SubTask를 추가하는데 실패했습니다.');
       throw error;
     }
   }, [user]);
@@ -291,7 +291,7 @@ export default function HomeScreen() {
         completed_at: newCompletedState ? new Date().toISOString() : null
       });
     } catch (error) {
-      console.error('할 일 상태 변경 오류:', error);
+      logger.error('할 일 상태 변경 오류:', error);
       Alert.alert('할 일 상태 변경 오류', '할 일 상태를 변경하는데 실패했습니다.');
       
       // 실패 시 상태 롤백
@@ -337,7 +337,7 @@ export default function HomeScreen() {
         setShowFilterModal(false);
       }
     } catch (error) {
-      console.error('Error changing filter:', error);
+      logger.ui('Error changing filter:', error);
     }
   }, [filterState]);
 
@@ -422,7 +422,7 @@ export default function HomeScreen() {
         }
       });
     } catch (error) {
-      console.error('Error processing todos:', error);
+      logger.error('Error processing todos:', error);
       return [];
     }
   }, [todos, filterState, sortOption]);
@@ -469,7 +469,7 @@ export default function HomeScreen() {
       // Supabase 업데이트
       await todosApi.deleteTodo(id);
     } catch (error) {
-      console.error('할 일 삭제 오류:', error);
+      logger.error('할 일 삭제 오류:', error);
       Alert.alert('할 일 삭제 오류', '할 일을 삭제하는데 실패했습니다.');
       
       // 실패 시 상태 롤백 - 전체 데이터를 다시 로드
@@ -498,7 +498,7 @@ export default function HomeScreen() {
         
         setTodos(todoTree);
       } catch (reloadError) {
-        console.error('데이터 재로드 실패:', reloadError);
+        logger.error('데이터 재로드 실패:', reloadError);
       }
     }
   }, [user]);
@@ -508,7 +508,7 @@ export default function HomeScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={TodoColors.background.app} />
       
       <View style={styles.header}>
-        <Text style={styles.title}>My Tasks</Text>
+        <Text style={styles.title}>ToDoAI</Text>
         {user && (
           <View style={styles.headerActions}>
             {/* 로그아웃 버튼 - Supabase 세션 종료 및 로그인 화면으로 이동 */}
@@ -791,7 +791,7 @@ export default function HomeScreen() {
                 
                 setTodos(todoTree);
               } catch (error) {
-                console.error('데이터 새로고침 실패:', error);
+                logger.error('데이터 새로고침 실패:', error);
               }
             };
             loadData();
