@@ -1,4 +1,5 @@
 import { AIProvider, AIRequest, AIResponse, AITaskAnalysis, AIFeature } from '../../../types/AI';
+import { logger } from '@/lib/logger';
 
 // 모든 AI 제공자가 상속받을 추상 클래스
 export abstract class BaseAIProvider implements AIProvider {
@@ -25,7 +26,7 @@ export abstract class BaseAIProvider implements AIProvider {
     this.baseUrl = config.baseUrl;
     this.maxTokens = config.maxTokens || 1000;
     this.temperature = config.temperature || 0.7;
-    this.timeout = config.timeout || 30000;
+    this.timeout = config.timeout || 60000; // 60초로 증가
   }
 
   // 모든 제공자가 구현해야 하는 메서드
@@ -43,97 +44,104 @@ export abstract class BaseAIProvider implements AIProvider {
   // 공통 유틸리티 메서드들
   protected createSystemPrompt(request: AIRequest): string {
     const { mainTask, context } = request;
+    
+    try {
+      // 동적 import로 순환 참조 방지
+      const { PromptBuilder } = require('../prompts/utils/promptBuilder');
+      
+      const builtPrompt = PromptBuilder.buildPrompt(mainTask, {
+        categoryId: context?.categoryId,
+        userPreferences: context?.userPreferences
+      });
+      
+      return builtPrompt.system;
+    } catch (error) {
+      logger.ai('PromptBuilder loading error:', error);
+      // 폴백으로 기본 프롬프트 사용
+      return this.getFallbackPrompt(request);
+    }
+  }
+
+  private getFallbackPrompt(request: AIRequest): string {
+    const { mainTask, context } = request;
     const maxSubtasks = context?.userPreferences?.maxSubtasks || 5;
     const complexity = context?.userPreferences?.preferredComplexity || 'detailed';
     
-    return `당신은 생산성 및 할 일 관리 전문가입니다. 주어진 메인 태스크를 간단하고 명확한 단일 액션으로 분해해주세요.
+    return `당신은 할 일 관리 전문가입니다. 주어진 메인 태스크를 실행 가능한 세부 서브태스크들로 나누어 주세요.
 
 핵심 원칙:
-1. 각 세부 태스크는 하나의 명확한 액션이어야 함 (ONE ACTION RULE)
-2. 15분~1시간 내에 완료 가능한 작은 단위로 분해
-3. 즉시 시작할 수 있고 완료 여부를 명확히 판단할 수 있어야 함
-4. 간결하고 동사로 시작하는 명령문 형태
-5. 복합적인 작업은 여러 개의 단순 액션으로 분리
-
-좋은 예시:
-- "헬스장에서 인바디 측정하기"
-- "YouTube에서 홈트레이닝 영상 3개 찾기"
-- "운동 계획 템플릿 다운로드하기"
-- "1주차 운동 스케줄 달력에 표시하기"
-
-나쁜 예시:
-- "운동 계획 수립 및 일정표 작성하고 운동법 조사하기" (여러 액션이 혼재)
-- "근력 운동 계획 수립: 목표 근육량 증가를 위한 운동 루틴 작성 및 일정표 작성" (너무 복잡)
-
-분해 방식:
-- 조사/수집 → 계획/설계 → 실행/진행 → 점검/완료
-- 각 단계를 작은 액션 단위로 세분화
-- 도구나 장소를 구체적으로 명시
-
-분해 규칙:
-- 최대 ${maxSubtasks}개의 단순 액션으로 분해
-- 각 액션은 한 문장으로 표현
-- 중요도는 1-5 스케일 (5가 가장 중요)
-- 예상 소요시간을 현실적으로 책정
+- 각 서브태스크는 하나의 구체적인 행동이어야 합니다
+- 각 작업은 15-60분 내에 완료 가능해야 합니다
+- 명확하고 실행 가능한 동사로 시작해야 합니다
+- 최대 ${maxSubtasks}개의 서브태스크로 분해
 - 복잡도: ${complexity}
-- JSON 형식으로만 응답
 
 메인 태스크: "${mainTask}"
 
 응답 형식:
 {
-  "mainTask": "${mainTask}",
   "suggestedSubtasks": [
     {
-      "text": "간결한 단일 액션 (예: '헬스장 3곳 전화번호 검색하기')",
+      "text": "구체적인 행동 설명",
       "importance": 3,
-      "estimatedDuration": "20분",
-      "suggestedOrder": 1
+      "estimatedDuration": "30분"
     }
   ],
-  "suggestedImportance": 3,
-  "suggestedCategory": "건강",
-  "estimatedTotalTime": "2시간",
-  "complexity": "medium"
+  "suggestedImportance": 3
 }`;
   }
 
   protected parseAIResponse(responseText: string): AITaskAnalysis {
     try {
+      logger.debug('Raw AI response:', responseText);
+      
       // JSON 추출 (마크다운 코드 블록 제거)
       const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
                        responseText.match(/\{[\s\S]*\}/);
       
       if (!jsonMatch) {
+        logger.error('No JSON found in response:', responseText);
         throw new Error('No JSON found in response');
       }
 
-      const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      const jsonString = jsonMatch[1] || jsonMatch[0];
+      logger.debug('Extracted JSON string:', jsonString);
+      
+      const parsed = JSON.parse(jsonString);
+      logger.debug('Parsed JSON:', parsed);
       
       // 응답 검증 및 정규화
       return this.validateAndNormalizeResponse(parsed);
     } catch (error) {
+      logger.error('Parse error:', error);
+      logger.error('Original response:', responseText);
       throw new Error(`Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private validateAndNormalizeResponse(data: any): AITaskAnalysis {
-    if (!data.mainTask || !Array.isArray(data.suggestedSubtasks)) {
-      throw new Error('Invalid response format');
+    if (!Array.isArray(data.suggestedSubtasks)) {
+      throw new Error('Invalid response format: suggestedSubtasks must be an array');
     }
 
     return {
-      mainTask: data.mainTask,
+      mainTask: data.mainTask || '', // mainTask는 선택적으로 처리
       suggestedSubtasks: data.suggestedSubtasks.map((subtask: any, index: number) => ({
-        text: subtask.text || `서브태스크 ${index + 1}`,
+        text: subtask.text || `SubTask ${index + 1}`,
         importance: Math.min(Math.max(subtask.importance || 3, 1), 5),
         estimatedDuration: subtask.estimatedDuration || '미정',
-        suggestedOrder: subtask.suggestedOrder || index + 1
+        suggestedOrder: subtask.suggestedOrder || index + 1,
+        isRecurring: subtask.isRecurring || false,
+        recurrenceType: subtask.recurrenceType || undefined,
+        recurrenceInterval: subtask.recurrenceInterval || undefined,
+        recurrenceDays: subtask.recurrenceDays || undefined
       })),
       suggestedImportance: Math.min(Math.max(data.suggestedImportance || 3, 1), 5),
       suggestedCategory: data.suggestedCategory || undefined,
       estimatedTotalTime: data.estimatedTotalTime || '미정',
-      complexity: ['low', 'medium', 'high'].includes(data.complexity) ? data.complexity : 'medium'
+      complexity: ['low', 'medium', 'high'].includes(data.complexity) ? data.complexity : 'medium',
+      hasRecurringTasks: data.hasRecurringTasks || false,
+      suggestedSchedule: data.suggestedSchedule || undefined
     };
   }
 
@@ -151,6 +159,20 @@ export abstract class BaseAIProvider implements AIProvider {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
+      
+      // 에러 타입별 구체적인 메시지 제공
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error(`AI 서버 응답 시간 초과 (${this.timeout/1000}초). 잠시 후 다시 시도해주세요.`);
+        }
+        if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+          throw new Error('AI 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
+        }
+        if (error.message.includes('TypeError')) {
+          throw new Error('AI 서버 연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
+      }
+      
       throw error;
     }
   }

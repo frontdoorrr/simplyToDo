@@ -1,6 +1,7 @@
 import { AIService, AIProvider, AIProviderConfig, AIRequest, AIResponse } from '../../types/AI';
 import { GeminiProvider } from './providers/gemini';
 import { OpenAIProvider } from './providers/openai';
+import { logger } from '@/lib/logger';
 
 class AIServiceImpl implements AIService {
   private currentProvider: AIProvider | null = null;
@@ -82,7 +83,7 @@ class AIServiceImpl implements AIService {
     try {
       return await this.currentProvider.suggestCategories(taskText);
     } catch (error) {
-      console.error('Category suggestion failed:', error);
+      logger.ai('Category suggestion failed:', error);
       return [];
     }
   }

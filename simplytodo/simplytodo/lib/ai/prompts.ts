@@ -1,4 +1,5 @@
 // AI 프롬프트 템플릿 관리
+import { logger } from '@/lib/logger';
 
 export interface PromptTemplate {
   name: string;
@@ -160,7 +161,7 @@ export function createPrompt(
   return `${template.systemPrompt}${contextualPrompt}
 
 규칙:
-- 최대 ${maxSubtasks}개의 서브태스크로 분해
+- 최대 ${maxSubtasks}개의 SubTask로 분해
 - 복잡도: ${complexity}
 - JSON 형식으로만 응답
 
@@ -180,9 +181,9 @@ export class PromptManager {
       customPrompts[name] = template;
       
       // AsyncStorage에 저장 (실제 구현시)
-      console.log('Custom prompt saved:', name);
+      logger.ai('Custom prompt saved:', name);
     } catch (error) {
-      console.error('Failed to save custom prompt:', error);
+      logger.error('Failed to save custom prompt:', error);
     }
   }
 
@@ -191,7 +192,7 @@ export class PromptManager {
       // AsyncStorage에서 로드 (실제 구현시)
       return {};
     } catch (error) {
-      console.error('Failed to load custom prompts:', error);
+      logger.error('Failed to load custom prompts:', error);
       return {};
     }
   }

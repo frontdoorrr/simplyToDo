@@ -1,5 +1,6 @@
 import { BaseAIProvider } from './base';
 import { AIRequest, AIResponse, AIFeature } from '../../../types/AI';
+import { logger } from '@/lib/logger';
 
 export class OpenAIProvider extends BaseAIProvider {
   readonly name = 'openai';
@@ -66,7 +67,7 @@ export class OpenAIProvider extends BaseAIProvider {
       };
 
     } catch (error) {
-      console.error('OpenAI API error:', error);
+      logger.error('OpenAI API error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -117,7 +118,7 @@ export class OpenAIProvider extends BaseAIProvider {
       return Array.isArray(parsed.categories) ? parsed.categories : [];
       
     } catch (error) {
-      console.error('Category suggestion error:', error);
+      logger.ai('Category suggestion error:', error);
       return [];
     }
   }

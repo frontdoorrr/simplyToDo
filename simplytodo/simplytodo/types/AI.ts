@@ -5,6 +5,10 @@ export interface AIGeneratedSubtask {
   importance?: number;
   estimatedDuration?: string;
   suggestedOrder?: number;
+  isRecurring?: boolean;
+  recurrenceType?: 'daily' | 'weekly' | 'monthly' | 'custom';
+  recurrenceInterval?: number;
+  recurrenceDays?: number[];
 }
 
 export interface AITaskAnalysis {
@@ -14,11 +18,14 @@ export interface AITaskAnalysis {
   suggestedCategory?: string;
   estimatedTotalTime?: string;
   complexity?: 'low' | 'medium' | 'high';
+  hasRecurringTasks?: boolean;
+  suggestedSchedule?: string;
 }
 
 export interface AIRequest {
   mainTask: string;
   context?: {
+    categoryId?: string | null;
     existingCategories?: string[];
     userPreferences?: {
       maxSubtasks?: number;

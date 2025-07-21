@@ -1,5 +1,6 @@
 import { BaseAIProvider } from './base';
 import { AIRequest, AIResponse, AIFeature } from '../../../types/AI';
+import { logger } from '@/lib/logger';
 
 export class GeminiProvider extends BaseAIProvider {
   readonly name = 'gemini';
@@ -18,6 +19,13 @@ export class GeminiProvider extends BaseAIProvider {
       const systemPrompt = this.createSystemPrompt(request);
       const url = `${this.apiUrl}/${this.model}:generateContent?key=${this.apiKey}`;
 
+      // 새로운 프롬프트 시스템 지원을 위한 텍스트 구성
+      const promptText = typeof systemPrompt === 'string' 
+        ? `${systemPrompt}\n\n메인 태스크: "${request.mainTask}"`
+        : `${systemPrompt}\n\n메인 태스크: "${request.mainTask}"`;
+
+      logger.ai('Sending prompt to Gemini:', promptText);
+
       const response = await this.makeHttpRequest(url, {
         method: 'POST',
         headers: {
@@ -26,7 +34,7 @@ export class GeminiProvider extends BaseAIProvider {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `${systemPrompt}\n\n메인 태스크: "${request.mainTask}"`
+              text: promptText
             }]
           }],
           generationConfig: {
@@ -54,12 +62,16 @@ export class GeminiProvider extends BaseAIProvider {
       }
 
       const data = await response.json();
+      logger.ai('Gemini raw response:', data);
       
       if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        logger.error('Invalid Gemini response structure:', data);
         throw new Error('Invalid response format from Gemini');
       }
 
       const responseText = data.candidates[0].content.parts[0].text;
+      logger.ai('Gemini response text:', responseText);
+      
       const analysisResult = this.parseAIResponse(responseText);
 
       return {
@@ -72,7 +84,7 @@ export class GeminiProvider extends BaseAIProvider {
       };
 
     } catch (error) {
-      console.error('Gemini API error:', error);
+      logger.error('Gemini API error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -125,7 +137,7 @@ export class GeminiProvider extends BaseAIProvider {
       
       return [];
     } catch (error) {
-      console.error('Category suggestion error:', error);
+      logger.ai('Category suggestion error:', error);
       return [];
     }
   }
