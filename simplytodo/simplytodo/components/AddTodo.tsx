@@ -10,6 +10,7 @@ import { recurringRulesApi } from '@/lib/supabase';
 import { CreateRecurringRuleRequest } from '@/types/RecurringRule';
 import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/logger';
+import { notificationSettingsService } from '@/lib/notificationSettings';
 
 interface AddTodoProps {
   onAddTodo: (text: string, importance: number, dueDate: number | null, categoryId: string | null) => Promise<string>; // Promise<todoId> 반환
@@ -18,18 +19,6 @@ interface AddTodoProps {
   mainTodos?: Todo[]; // Subtask를 위한 메인 할 일 목록
 }
 
-// 할 일 마감 알림 예약 함수
-async function scheduleTodoNotification(title: string, dueDate: Date) {
-  const now = new Date();
-  const seconds = Math.max(1, Math.floor((dueDate.getTime() - now.getTime()) / 1000));
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '[SimplyTodo]할 일 마감 알림',
-      body: `"${title}" 마감이 오늘이에요`,
-    },
-    trigger: { seconds, repeats: false },
-  });
-}
 
 export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAddAISubtasks, mainTodos = [] }) => {
   const { user } = useAuth();
@@ -56,12 +45,19 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
         onAddSubtask(selectedParentId, text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
       } else {
         // 메인 할 일 추가
-        await onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
-      }
-      
-      // 마감일이 있으면 알림 예약
-      if (dueDate) {
-        scheduleTodoNotification(text.trim(), dueDate);
+        const todoId = await onAddTodo(text.trim(), importance, dueDate ? dueDate.getTime() : null, selectedCategoryId);
+        
+        // 마감일이 있으면 새로운 알림 설정에 따라 알림 예약
+        if (dueDate) {
+          const newTodo: Partial<Todo> = {
+            id: todoId,
+            text: text.trim(),
+            dueDate: dueDate.getTime(),
+            categoryId: selectedCategoryId,
+            importance
+          };
+          await notificationSettingsService.scheduleNotificationWithSettings(newTodo as Todo);
+        }
       }
       
       // 상태 초기화
@@ -208,9 +204,16 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
         throw new Error('메인 태스크 생성에 실패했습니다.');
       }
 
-      // 마감일이 있으면 알림 예약
+      // 마감일이 있으면 새로운 알림 설정에 따라 알림 예약
       if (dueDate) {
-        scheduleTodoNotification(text.trim(), dueDate);
+        const newTodo: Partial<Todo> = {
+          id: parentId,
+          text: text.trim(),
+          dueDate: dueDate.getTime(),
+          categoryId: selectedCategoryId,
+          importance
+        };
+        await notificationSettingsService.scheduleNotificationWithSettings(newTodo as Todo);
       }
 
       // 반복 태스크와 일반 태스크 분리

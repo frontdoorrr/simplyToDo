@@ -1,5 +1,7 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Collapsible } from '@/components/Collapsible';
 import { ExternalLink } from '@/components/ExternalLink';
@@ -23,7 +25,49 @@ export default function TabTwoScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Explore</ThemedText>
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
+
+      {/* 설정 섹션 */}
+      <View style={styles.settingsSection}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>설정</ThemedText>
+        
+        <TouchableOpacity 
+          style={styles.settingItem} 
+          onPress={() => router.push('/(tabs)/notification-settings')}
+        >
+          <View style={styles.settingItemLeft}>
+            <Ionicons name="notifications-outline" size={24} color="#4CAF50" />
+            <View style={styles.settingItemText}>
+              <ThemedText style={styles.settingTitle}>알림 설정</ThemedText>
+              <ThemedText style={styles.settingSubtitle}>마감일, 반복 작업, 카테고리별 알림 관리</ThemedText>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#999" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingItemLeft}>
+            <Ionicons name="color-palette-outline" size={24} color="#FF9800" />
+            <View style={styles.settingItemText}>
+              <ThemedText style={styles.settingTitle}>테마 설정</ThemedText>
+              <ThemedText style={styles.settingSubtitle}>다크 모드 및 색상 테마 (준비 중)</ThemedText>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#999" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingItemLeft}>
+            <Ionicons name="cloud-outline" size={24} color="#2196F3" />
+            <View style={styles.settingItemText}>
+              <ThemedText style={styles.settingTitle}>클라우드 동기화</ThemedText>
+              <ThemedText style={styles.settingSubtitle}>기기 간 데이터 동기화 (준비 중)</ThemedText>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#999" />
+        </TouchableOpacity>
+      </View>
+
+      <ThemedText>기타 기능들을 살펴보세요.</ThemedText>
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{' '}
@@ -106,5 +150,40 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     gap: 8,
+  },
+  settingsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  settingItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingItemText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  settingSubtitle: {
+    fontSize: 14,
+    opacity: 0.6,
   },
 });
