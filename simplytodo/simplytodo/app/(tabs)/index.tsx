@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, SafeAreaView, View, Text, StatusBar, KeyboardAvoidingView, Platform, TouchableOpacity, Modal, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { AddTodo } from '@/components/AddTodo';
 import { TodoList } from '@/components/TodoList';
 import { RecurringRuleManager } from '@/components/RecurringRuleManager';
@@ -36,6 +37,7 @@ export default function HomeScreen() {
   // Supabase로부터 데이터 로드
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   
   useEffect(() => {
     const loadData = async () => {
@@ -503,6 +505,30 @@ export default function HomeScreen() {
     }
   }, [user]);
 
+  // 간단한 통계 계산
+  const quickStats = useMemo(() => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+
+    const totalTodos = todos.length;
+    const completedTodos = todos.filter(todo => todo.completed).length;
+    const dueTodayTodos = todos.filter(todo => 
+      todo.dueDate && todo.dueDate >= todayStart && todo.dueDate < todayEnd
+    ).length;
+    const overdueTodos = todos.filter(todo => 
+      todo.dueDate && todo.dueDate < todayStart && !todo.completed
+    ).length;
+
+    return {
+      total: totalTodos,
+      completed: completedTodos,
+      dueToday: dueTodayTodos,
+      overdue: overdueTodos,
+      completionRate: totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
+    };
+  }, [todos]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={TodoColors.background.app} />
@@ -521,6 +547,36 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
+
+      {/* 간단한 통계 위젯 */}
+      {todos.length > 0 && (
+        <TouchableOpacity 
+          style={styles.statsWidget} 
+          onPress={() => router.push('/statistics')}
+        >
+          <View style={styles.statsWidgetContent}>
+            <View style={styles.statsMainInfo}>
+              <Text style={styles.statsTitle}>오늘의 진행상황</Text>
+              <Text style={styles.statsCompletionRate}>{quickStats.completionRate}% 완료</Text>
+            </View>
+            <View style={styles.statsDetails}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{quickStats.dueToday}</Text>
+                <Text style={styles.statLabel}>오늘 마감</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, quickStats.overdue > 0 && { color: '#FF5722' }]}>
+                  {quickStats.overdue}
+                </Text>
+                <Text style={styles.statLabel}>지연</Text>
+              </View>
+              <View style={styles.statItem}>
+                <MaterialIcons name="arrow-forward" size={20} color="#666" />
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
       
       {/* 정렬 옵션 모달 */}
       <Modal
@@ -955,5 +1011,58 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic'
-  }
+  },
+  
+  // 통계 위젯 스타일
+  statsWidget: {
+    backgroundColor: '#F8F9FA',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  statsWidgetContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statsMainInfo: {
+    flex: 1,
+  },
+  statsTitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  statsCompletionRate: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  statsDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  statLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 2,
+  },
 });
