@@ -597,14 +597,14 @@ interface SettingItemProps {
   onPress?: () => void;
 }
 
-const SettingItem = React.memo<SettingItemProps>(({ 
+const SettingItem = React.memo<SettingItemProps>(function SettingItem({ 
   title, 
   subtitle, 
   enabled = false, 
   showToggle = true, 
   onToggle, 
   onPress 
-}) => {
+}) {
   return (
     <TouchableOpacity style={styles.settingItem} onPress={onPress}>
       <View style={styles.settingItemContent}>

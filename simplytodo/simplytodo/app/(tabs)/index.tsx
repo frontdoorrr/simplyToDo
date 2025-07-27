@@ -556,7 +556,7 @@ export default function HomeScreen() {
         >
           <View style={styles.statsWidgetContent}>
             <View style={styles.statsMainInfo}>
-              <Text style={styles.statsTitle}>오늘의 진행상황</Text>
+              <Text style={styles.statsTitle}>전체 진행상황</Text>
               <Text style={styles.statsCompletionRate}>{quickStats.completionRate}% 완료</Text>
             </View>
             <View style={styles.statsDetails}>

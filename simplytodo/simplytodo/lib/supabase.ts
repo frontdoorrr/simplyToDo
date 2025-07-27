@@ -43,6 +43,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // 소셜 로그인 관련 설정
+    flowType: 'pkce',
   },
 });
 

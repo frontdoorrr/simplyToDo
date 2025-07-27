@@ -22,6 +22,10 @@ export default function SettingsScreen() {
     router.push('/notification-settings');
   };
 
+  const navigateToAccountManagement = () => {
+    router.push('/account-management');
+  };
+
   const showComingSoon = (feature: string) => {
     Alert.alert('준비 중', `${feature} 기능은 곧 추가될 예정입니다.`);
   };
@@ -141,8 +145,8 @@ export default function SettingsScreen() {
           <SettingItem
             icon="person-outline"
             title="계정 관리"
-            subtitle="프로필, 로그인 정보 관리"
-            onPress={() => showComingSoon('계정 관리')}
+            subtitle="프로필, 소셜 계정 연결 관리"
+            onPress={navigateToAccountManagement}
             iconColor="#FF5722"
           />
           

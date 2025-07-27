@@ -1,17 +1,35 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { supabase, categoriesApi } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { DefaultCategories } from '@/types/Todo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TodoColors } from '@/constants/Colors';
 import { logger } from '@/lib/logger';
+import { socialAuthService } from '@/lib/socialAuthService';
+import SocialLoginButton from '@/components/auth/SocialLoginButton';
+import { getSupportedProviders } from '@/lib/platformUtils';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [signUpMode, setSignUpMode] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<{
+    google: boolean;
+    apple: boolean;
+  }>({
+    google: false,
+    apple: false,
+  });
+  const [supportedProviders, setSupportedProviders] = useState<('google' | 'apple')[]>([]);
+
+  // 지원되는 소셜 로그인 프로바이더 확인
+  useEffect(() => {
+    const providers = getSupportedProviders();
+    setSupportedProviders(providers);
+    logger.debug('Supported social providers:', providers);
+  }, []);
 
   // 기본 카테고리를 생성하는 함수
   const createDefaultCategories = async (userId: string) => {
@@ -101,6 +119,58 @@ export default function LoginScreen() {
     }
   };
 
+  // Google 로그인 처리
+  const handleGoogleSignIn = async () => {
+    try {
+      setSocialLoading(prev => ({ ...prev, google: true }));
+      
+      const result = await socialAuthService.signInWithGoogle();
+      
+      if (result.success && result.user) {
+        // 신규 사용자인 경우 기본 카테고리 생성
+        if (result.user.id) {
+          await createDefaultCategories(result.user.id);
+        }
+        
+        logger.auth('Google social login successful');
+        // AuthContext가 자동으로 상태를 업데이트하여 라우팅 처리됨
+      } else {
+        Alert.alert('Google 로그인 실패', result.error || '알 수 없는 오류가 발생했습니다.');
+      }
+    } catch (error: any) {
+      logger.error('Google social login error:', error);
+      Alert.alert('Google 로그인 오류', error.message || '로그인 중 오류가 발생했습니다.');
+    } finally {
+      setSocialLoading(prev => ({ ...prev, google: false }));
+    }
+  };
+
+  // Apple 로그인 처리
+  const handleAppleSignIn = async () => {
+    try {
+      setSocialLoading(prev => ({ ...prev, apple: true }));
+      
+      const result = await socialAuthService.signInWithApple();
+      
+      if (result.success && result.user) {
+        // 신규 사용자인 경우 기본 카테고리 생성
+        if (result.user.id) {
+          await createDefaultCategories(result.user.id);
+        }
+        
+        logger.auth('Apple social login successful');
+        // AuthContext가 자동으로 상태를 업데이트하여 라우팅 처리됨
+      } else {
+        Alert.alert('Apple 로그인 실패', result.error || '알 수 없는 오류가 발생했습니다.');
+      }
+    } catch (error: any) {
+      logger.error('Apple social login error:', error);
+      Alert.alert('Apple 로그인 오류', error.message || '로그인 중 오류가 발생했습니다.');
+    } finally {
+      setSocialLoading(prev => ({ ...prev, apple: false }));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.formContainer}>
@@ -108,6 +178,36 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>
           {signUpMode ? '새 계정 만들기' : '로그인'}
         </Text>
+
+        {/* 소셜 로그인 버튼들 - 플랫폼별 지원 */}
+        {supportedProviders.length > 0 && (
+          <View style={styles.socialButtonsContainer}>
+            {supportedProviders.includes('google') && (
+              <SocialLoginButton
+                provider="google"
+                onPress={handleGoogleSignIn}
+                loading={socialLoading.google}
+                disabled={loading || socialLoading.apple}
+              />
+            )}
+            
+            {supportedProviders.includes('apple') && (
+              <SocialLoginButton
+                provider="apple"
+                onPress={handleAppleSignIn}
+                loading={socialLoading.apple}
+                disabled={loading || socialLoading.google}
+              />
+            )}
+          </View>
+        )}
+
+        {/* 구분선 */}
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>또는</Text>
+          <View style={styles.dividerLine} />
+        </View>
 
         <TextInput
           style={styles.input}
@@ -129,7 +229,7 @@ export default function LoginScreen() {
         <TouchableOpacity
           style={styles.button}
           onPress={handleAuth}
-          disabled={loading}
+          disabled={loading || socialLoading.google || socialLoading.apple}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -143,7 +243,7 @@ export default function LoginScreen() {
         <TouchableOpacity
           style={styles.secondaryButton}
           onPress={() => setSignUpMode(!signUpMode)}
-          disabled={loading}
+          disabled={loading || socialLoading.google || socialLoading.apple}
         >
           <Text style={styles.secondaryButtonText}>
             {signUpMode ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 가입하기'}
@@ -154,7 +254,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={styles.forgotPasswordButton}
             onPress={handleForgotPassword}
-            disabled={loading}
+            disabled={loading || socialLoading.google || socialLoading.apple}
           >
             <Text style={styles.forgotPasswordText}>비밀번호를 잊으셨나요?</Text>
           </TouchableOpacity>
@@ -186,8 +286,27 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 18,
-    marginBottom: 30,
+    marginBottom: 20,
     textAlign: 'center',
+    color: TodoColors.text.secondary,
+  },
+  socialButtonsContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    marginHorizontal: 15,
+    fontSize: 14,
     color: TodoColors.text.secondary,
   },
   input: {
