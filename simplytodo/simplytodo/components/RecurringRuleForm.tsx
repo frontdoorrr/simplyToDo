@@ -16,7 +16,7 @@ const recurringTypes = [
 ];
 
 export default function RecurringRuleForm({ initialRule, onSave, onCancel }: RecurringRuleFormProps) {
-  const [title, setTitle] = useState(initialRule?.title || '');
+  const [title, setTitle] = useState(initialRule?.name || '');
   const [recurringType, setRecurringType] = useState(initialRule?.recurring_type || 'daily');
   const [startDate, setStartDate] = useState(initialRule?.start_date || '');
 
@@ -54,7 +54,7 @@ export default function RecurringRuleForm({ initialRule, onSave, onCancel }: Rec
         <Button
           title="저장"
           onPress={() => onSave({
-            title,
+            name: title,
             recurring_type: recurringType,
             start_date: startDate,
             is_active: true,

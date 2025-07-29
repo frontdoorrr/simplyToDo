@@ -179,7 +179,7 @@ export const NotificationPreviewModal: React.FC<NotificationPreviewModalProps> =
     }
   };
 
-  const getImportanceIcon = (importance: number): string => {
+  const getImportanceIcon = (importance: number): any => {
     switch (importance) {
       case 3: return 'warning';
       case 2: return 'information-circle';

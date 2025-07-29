@@ -192,11 +192,27 @@ export class SocialAuthErrorFactory {
 
   // 토큰 관련 에러 생성
   static createTokenError(type: SocialAuthErrorType, originalError?: any): SocialAuthError {
-    const errorMessages = {
+    const errorMessages: Record<SocialAuthErrorType, string> = {
+      [SocialAuthErrorType.UNKNOWN_ERROR]: '알 수 없는 오류가 발생했습니다.',
+      [SocialAuthErrorType.NETWORK_ERROR]: '네트워크 오류가 발생했습니다.',
+      [SocialAuthErrorType.CONFIGURATION_ERROR]: '설정 오류가 발생했습니다.',
+      [SocialAuthErrorType.GOOGLE_SIGNIN_CANCELLED]: 'Google 로그인이 취소되었습니다.',
+      [SocialAuthErrorType.GOOGLE_SIGNIN_IN_PROGRESS]: 'Google 로그인이 진행 중입니다.',
+      [SocialAuthErrorType.GOOGLE_PLAY_SERVICES_NOT_AVAILABLE]: 'Google Play Services를 사용할 수 없습니다.',
+      [SocialAuthErrorType.GOOGLE_TOKEN_ERROR]: 'Google 토큰 오류가 발생했습니다.',
+      [SocialAuthErrorType.APPLE_SIGNIN_NOT_AVAILABLE]: 'Apple Sign-In을 사용할 수 없습니다.',
+      [SocialAuthErrorType.APPLE_SIGNIN_CANCELLED]: 'Apple 로그인이 취소되었습니다.',
+      [SocialAuthErrorType.APPLE_TOKEN_ERROR]: 'Apple 토큰 오류가 발생했습니다.',
+      [SocialAuthErrorType.APPLE_PLATFORM_NOT_SUPPORTED]: 'Apple Sign-In이 지원되지 않는 플랫폼입니다.',
+      [SocialAuthErrorType.SUPABASE_AUTH_ERROR]: 'Supabase 인증 오류가 발생했습니다.',
+      [SocialAuthErrorType.SUPABASE_NETWORK_ERROR]: 'Supabase 네트워크 오류가 발생했습니다.',
       [SocialAuthErrorType.TOKEN_STORAGE_ERROR]: '토큰 저장에 실패했습니다.',
       [SocialAuthErrorType.TOKEN_RETRIEVAL_ERROR]: '토큰 조회에 실패했습니다.',
       [SocialAuthErrorType.TOKEN_INVALID]: '인증 토큰이 유효하지 않습니다.',
       [SocialAuthErrorType.TOKEN_EXPIRED]: '인증 토큰이 만료되었습니다. 다시 로그인해주세요.',
+      [SocialAuthErrorType.ACCOUNT_LINKING_ERROR]: '계정 연결 중 오류가 발생했습니다.',
+      [SocialAuthErrorType.ACCOUNT_UNLINKING_ERROR]: '계정 연결 해제 중 오류가 발생했습니다.',
+      [SocialAuthErrorType.ACCOUNT_MERGE_ERROR]: '계정 병합 중 오류가 발생했습니다.',
     };
     
     return new SocialAuthError(

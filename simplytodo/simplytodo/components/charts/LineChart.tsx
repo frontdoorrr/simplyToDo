@@ -7,7 +7,7 @@ interface LineChartProps {
     labels: string[];
     datasets: Array<{
       data: number[];
-      color?: string;
+      color?: (opacity: number) => string;
       strokeWidth?: number;
     }>;
   };

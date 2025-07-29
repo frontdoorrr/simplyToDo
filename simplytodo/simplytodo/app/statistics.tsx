@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { statisticsService } from '@/lib/statisticsService';
 import { StatisticsSummary } from '@/types/Statistics';
@@ -19,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { DonutChart, ProgressBar, MiniChart } from '@/components/charts';
 
 export default function StatisticsScreen() {
+  const router = useRouter();
   const [statistics, setStatistics] = useState<StatisticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -180,10 +182,22 @@ export default function StatisticsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>생산성 통계</Text>
-        <TouchableOpacity onPress={handleRefresh}>
-          <Ionicons name="refresh" size={24} color="#4CAF50" />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>생산성 통계</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={handleRefresh}>
+            <Ionicons name="refresh" size={24} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -440,6 +454,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+  },
+  headerLeft: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  headerCenter: {
+    flex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerRight: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  backButton: {
+    padding: 4,
   },
   headerTitle: {
     fontSize: 18,

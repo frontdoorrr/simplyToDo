@@ -33,7 +33,7 @@ function useDebounce<T extends (...args: any[]) => any>(callback: T, delay: numb
 
     const timer = setTimeout(() => {
       callback(...args);
-    }, delay) as NodeJS.Timeout;
+    }, delay) as unknown as NodeJS.Timeout;
 
     setDebounceTimer(timer);
   }, [callback, delay, debounceTimer]) as T;

@@ -32,7 +32,7 @@ export default function TabTwoScreen() {
         
         <TouchableOpacity 
           style={styles.settingItem} 
-          onPress={() => router.push('/(tabs)/notification-settings')}
+          onPress={() => router.push('/notification-settings')}
         >
           <View style={styles.settingItemLeft}>
             <Ionicons name="notifications-outline" size={24} color="#4CAF50" />

@@ -1,5 +1,29 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# SimplyToDo 프로젝트 구조 및 핵심 규칙
+
+## 주요 엔트리포인트
+- 메인 화면은 [`app/(tabs)/index.tsx`](mdc:simplytodo/simplytodo/app/(tabs)/index.tsx)에서 시작하며, 할 일 목록, 카테고리, AI, 반복 규칙 등 주요 기능을 통합 관리합니다.
+- 할 일 추가/수정/삭제, 카테고리 관리, 반복 규칙 관리는 각각 [`AddTodo.tsx`](mdc:simplytodo/simplytodo/components/AddTodo.tsx), [`CategoryManager.tsx`](mdc:simplytodo/simplytodo/components/CategoryManager.tsx), [`RecurringRuleManager.tsx`](mdc:simplytodo/simplytodo/components/RecurringRuleManager.tsx)에서 담당합니다.
+
+## AI 서비스 구조
+- AI 기능은 [`AIService.ts`](mdc:simplytodo/simplytodo/lib/ai/AIService.ts)에서 추상화되어 있으며, Gemini/OpenAI 등 다양한 프로바이더를 지원합니다.
+- 카테고리별 동적 프롬프트, 반복 태스크 감지 등 고급 기능은 [`lib/ai/prompts/`](mdc:simplytodo/simplytodo/lib/ai/prompts) 디렉토리와 관련 타입에서 관리합니다.
+
+## Supabase 연동
+- 데이터베이스 및 인증, 반복 규칙 등 모든 백엔드 연동은 [`supabase.ts`](mdc:simplytodo/simplytodo/lib/supabase.ts)에서 통합 관리합니다.
+- todosApi, categoriesApi, recurringRulesApi 등으로 할 일, 카테고리, 반복 규칙을 CRUD 할 수 있습니다.
+
+## 로깅 시스템
+- 고급 logger 시스템은 [`logger.ts`](mdc:simplytodo/simplytodo/lib/logger.ts)에서 제공하며, 로그 레벨/카테고리별로 세분화된 로깅이 가능합니다.
+- logger는 개발/운영 환경에 따라 로그 출력 방식이 다르며, 주요 컴포넌트와 서비스에서 일관되게 사용해야 합니다.
+
+## 환경설정 및 빌드
+- 앱 환경설정, 빌드, 배포 스크립트 등은 [`package.json`](mdc:simplytodo/simplytodo/package.json), [`app.config.js`](mdc:simplytodo/simplytodo/app.config.js), [`eas.json`](mdc:simplytodo/simplytodo/eas.json) 등에서 관리합니다.
+
+## 개발 체크리스트 및 문서
+- 전체 기능 기획 및 체크리스트는 [`Task.md`](mdc:simplytodo/simplytodo/Task.md)에 정리되어 있습니다.
+- 마케팅, 계정, 아이콘, 정책 등 문서는 [`docs/`](mdc:simplytodo/simplytodo/docs) 디렉토리에 위치합니다.

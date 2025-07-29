@@ -40,7 +40,7 @@ export const resetApp = async (): Promise<void> => {
       // React Native에서는 AsyncStorage 정리
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       const keys = await AsyncStorage.getAllKeys();
-      const supabaseKeys = keys.filter(key => 
+      const supabaseKeys = keys.filter((key: string) => 
         key.includes('supabase') || 
         key.includes('auth') || 
         key.includes('session') ||

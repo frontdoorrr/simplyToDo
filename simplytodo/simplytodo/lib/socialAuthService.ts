@@ -62,31 +62,31 @@ export class SocialAuthService {
   }
 
   // Google 계정 연결 (개발 환경에서 비활성화)
-  async linkGoogleAccount(userId: string): Promise<void> {
+  async linkGoogleAccount(_userId: string): Promise<void> {
     logger.debug('Google account linking disabled in development environment');
     throw new Error('Google 계정 연결이 개발 환경에서 비활성화되었습니다.');
   }
 
   // Apple 계정 연결 (개발 환경에서 비활성화)
-  async linkAppleAccount(userId: string): Promise<void> {
+  async linkAppleAccount(_userId: string): Promise<void> {
     logger.debug('Apple account linking disabled in development environment');
     throw new Error('Apple 계정 연결이 개발 환경에서 비활성화되었습니다.');
   }
 
   // Google 계정 연결 해제 (개발 환경에서 비활성화)
-  async unlinkGoogleAccount(userId: string): Promise<void> {
+  async unlinkGoogleAccount(_userId: string): Promise<void> {
     logger.debug('Google account unlinking disabled in development environment');
     throw new Error('Google 계정 연결 해제가 개발 환경에서 비활성화되었습니다.');
   }
 
   // Apple 계정 연결 해제 (개발 환경에서 비활성화)
-  async unlinkAppleAccount(userId: string): Promise<void> {
+  async unlinkAppleAccount(_userId: string): Promise<void> {
     logger.debug('Apple account unlinking disabled in development environment');
     throw new Error('Apple 계정 연결 해제가 개발 환경에서 비활성화되었습니다.');
   }
 
   // 연결된 계정 목록 조회 (개발 환경에서 빈 배열 반환)
-  async getConnectedAccounts(userId: string): Promise<SocialProvider[]> {
+  async getConnectedAccounts(_userId: string): Promise<SocialProvider[]> {
     logger.debug('Connected accounts query disabled in development environment');
     return [];
   }
@@ -100,7 +100,7 @@ export class SocialAuthService {
   }
 
   // 현재 사용자 ID 가져오기 (개발 환경에서 비활성화)
-  private async getCurrentUserId(): Promise<string> {
+  private async _getCurrentUserId(): Promise<string> {
     throw new Error('User ID query disabled in development environment');
   }
 }

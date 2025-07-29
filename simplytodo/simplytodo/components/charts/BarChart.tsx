@@ -7,7 +7,7 @@ interface BarChartProps {
     labels: string[];
     datasets: Array<{
       data: number[];
-      color?: string;
+      color?: (opacity: number) => string;
     }>;
   };
   title?: string;

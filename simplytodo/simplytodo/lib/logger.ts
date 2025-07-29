@@ -65,11 +65,12 @@ class Logger {
       info: console.info,
       warn: console.warn,
       error: console.error,
+      silent: undefined,
     }[level];
 
     if (LOG_CONFIG.includeStack && level === 'error') {
       console.trace(formattedMessage, ...rest);
-    } else {
+    } else if (consoleMethod) {
       consoleMethod(formattedMessage, ...rest);
     }
   }
@@ -147,12 +148,12 @@ export const logger = new Logger();
 
 // 레거시 지원 및 유틸리티 함수들
 export const devLog = (...args: any[]) => {
-  logger.debug(...args);
+  logger.debug(args.join(' '));
 };
 
 export const prodLog = (...args: any[]) => {
   if (IS_PRODUCTION) {
-    logger.info(...args);
+    logger.info(args.join(' '));
   }
 };
 

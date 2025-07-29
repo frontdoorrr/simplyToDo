@@ -60,6 +60,7 @@ export interface TodoData {
   grade: number;             // 계층 레벨 (0: 메인, 1: Subtask, 2: 서브-Subtask)
   user_id?: string;
   created_at?: string;
+  completed_at?: string | null; // 완료 날짜 추가
 }
 
 export interface CategoryData {

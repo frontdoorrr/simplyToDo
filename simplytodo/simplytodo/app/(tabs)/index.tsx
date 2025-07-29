@@ -7,7 +7,7 @@ import { TodoList } from '@/components/TodoList';
 import { RecurringRuleManager } from '@/components/RecurringRuleManager';
 import { Todo, createTodo, Category, DefaultCategories } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
-import { todosApi, categoriesApi, subtaskUtils } from '@/lib/supabase';
+import { todosApi, categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { resetApp } from '@/lib/appReset';
 import { aiService, createGeminiConfig } from '@/lib/ai/AIService';
@@ -91,11 +91,8 @@ export default function HomeScreen() {
         }));
         
         
-        // subtaskUtils를 사용하여 트리 구조 구성
-        const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
-        
-        
-        setTodos(todoTree);
+        // buildTodoTree는 Todo 타입만 처리하므로 직접 설정
+        setTodos(formattedTodos);
         setCategories(formattedCategories.length > 0 ? formattedCategories : DefaultCategories);
       } catch (error) {
         logger.error('데이터 로드 실패:', error);
@@ -184,12 +181,8 @@ export default function HomeScreen() {
           completedAt: newSubtask.completed_at ? new Date(newSubtask.completed_at).getTime() : null
         };
         
-        // 새 Subtask를 추가하고 트리 구조 재구성
-        setTodos(prev => {
-          const flatTodos = subtaskUtils.flattenTodoTree(prev);
-          const updatedTodos = [...flatTodos, formattedSubtask];
-          return subtaskUtils.buildTodoTree(updatedTodos);
-        });
+        // 새 Subtask를 로컬 상태에 추가
+        setTodos(prev => [...prev, formattedSubtask]);
       }
     } catch (error) {
       logger.error('Subtask 추가 오류:', error);
@@ -235,13 +228,9 @@ export default function HomeScreen() {
         }
       }
 
-      // 모든 새 SubTask를 추가하고 트리 구조 재구성
+      // 모든 새 SubTask를 로컬 상태에 추가
       if (newSubtasks.length > 0) {
-        setTodos(prev => {
-          const flatTodos = subtaskUtils.flattenTodoTree(prev);
-          const updatedTodos = [...flatTodos, ...newSubtasks];
-          return subtaskUtils.buildTodoTree(updatedTodos);
-        });
+        setTodos(prev => [...prev, ...newSubtasks]);
       }
     } catch (error) {
       logger.error('AI SubTask 추가 오류:', error);
@@ -434,15 +423,11 @@ export default function HomeScreen() {
     if (!user) return;
     
     try {
-      // 삭제될 todo를 찾아서 백업
-      let deletedTodo: Todo | null = null;
-      
       // 로컬 상태 먼저 업데이트 (UI 반응성)
       setTodos(prevTodos => {
         const deleteTodoRecursive = (todos: Todo[]): Todo[] => {
           return todos.filter(todo => {
             if (todo.id === id) {
-              deletedTodo = todo;
               return false; // 이 todo를 필터링으로 제거
             }
             // Subtask에서도 확인
@@ -478,7 +463,7 @@ export default function HomeScreen() {
       if (!user) return;
       
       try {
-        const [todos, categories] = await Promise.all([
+        const [todos] = await Promise.all([
           todosApi.getTodos(user.id),
           categoriesApi.getCategories(user.id)
         ]);
@@ -496,9 +481,7 @@ export default function HomeScreen() {
           completedAt: todo.completed_at ? new Date(todo.completed_at).getTime() : null
         }));
         
-        const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
-        
-        setTodos(todoTree);
+        setTodos(formattedTodos);
       } catch (reloadError) {
         logger.error('데이터 재로드 실패:', reloadError);
       }
@@ -820,12 +803,12 @@ export default function HomeScreen() {
         visible={showRecurringManager}
         onClose={() => setShowRecurringManager(false)}
         categories={categories}
-        onRuleCreated={(rule, instanceCount) => {
+        onRuleCreated={() => {
           // 새로운 반복 작업이 생성되면 todo 목록 새로고침
           if (user) {
             const loadData = async () => {
               try {
-                const [todos, categories] = await Promise.all([
+                const [todos] = await Promise.all([
                   todosApi.getTodos(user.id),
                   categoriesApi.getCategories(user.id)
                 ]);
@@ -843,9 +826,7 @@ export default function HomeScreen() {
                   completedAt: todo.completed_at ? new Date(todo.completed_at).getTime() : null
                 }));
                 
-                const todoTree = subtaskUtils.buildTodoTree(formattedTodos);
-                
-                setTodos(todoTree);
+                setTodos(formattedTodos);
               } catch (error) {
                 logger.error('데이터 새로고침 실패:', error);
               }

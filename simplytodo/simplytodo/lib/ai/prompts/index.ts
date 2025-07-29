@@ -14,6 +14,7 @@ export class PromptManager {
    * 카테고리 ID와 메인 태스크로 맞춤형 프롬프트 생성
    */
   static createPrompt(mainTask: string, categoryId?: string, userPreferences?: any) {
+    const { PromptBuilder } = require('./utils/promptBuilder');
     return PromptBuilder.buildPrompt(mainTask, {
       categoryId,
       userPreferences
@@ -24,6 +25,7 @@ export class PromptManager {
    * 태스크 내용 분석하여 적절한 카테고리 추천
    */
   static recommendCategory(mainTask: string) {
+    const { PromptBuilder } = require('./utils/promptBuilder');
     return PromptBuilder.suggestCategory(mainTask);
   }
 
@@ -31,6 +33,7 @@ export class PromptManager {
    * 사용 가능한 카테고리 목록 반환
    */
   static getCategories() {
+    const { PromptBuilder } = require('./utils/promptBuilder');
     return PromptBuilder.getAvailableCategories();
   }
 }

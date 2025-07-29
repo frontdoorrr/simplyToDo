@@ -341,7 +341,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
       {/* Subtask 목록 표시 */}
       {hasSubtasks && subtasks && categories && onToggleSubtask && onDeleteSubtask && onAddSubtask && (
         <SubtaskList
-          parentTodo={{ id, text, completed, importance, createdAt: 0, dueDate, categoryId, parentId, grade, subtasks }}
+          parentTodo={{ id, text, completed, importance, createdAt: 0, dueDate, categoryId: categoryId || null, parentId: parentId || null, grade, completedAt: null, subtasks }}
           categories={categories}
           onToggleSubtask={onToggleSubtask}
           onDeleteSubtask={onDeleteSubtask}
