@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
@@ -10,9 +9,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { useTheme } from '@/hooks/useTheme';
+import { ThemeColors } from '@/types/Theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const navigateToStatistics = () => {
     router.push('/statistics');
@@ -24,6 +28,10 @@ export default function SettingsScreen() {
 
   const navigateToAccountManagement = () => {
     router.push('/account-management');
+  };
+
+  const navigateToThemeSettings = () => {
+    router.push('/theme-settings');
   };
 
   const showComingSoon = (feature: string) => {
@@ -56,7 +64,7 @@ export default function SettingsScreen() {
         </View>
       </View>
       {showArrow && (
-        <Ionicons name="chevron-forward" size={20} color="#CCC" />
+        <Ionicons name="chevron-forward" size={20} color={colors.text.tertiary} />
       )}
     </TouchableOpacity>
   );
@@ -104,7 +112,7 @@ export default function SettingsScreen() {
             icon="color-palette-outline"
             title="테마 설정"
             subtitle="다크 모드, 색상 테마 변경"
-            onPress={() => showComingSoon('테마 설정')}
+            onPress={navigateToThemeSettings}
             iconColor="#9C27B0"
           />
           
@@ -217,76 +225,76 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => ({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background.app,
   },
   header: {
     paddingHorizontal: 16,
     paddingVertical: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.interaction.border,
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#000',
+    fontWeight: '700' as const,
+    color: colors.text.primary,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
   },
   content: {
     flex: 1,
   },
   section: {
     marginTop: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background.card,
     borderRadius: 12,
     marginHorizontal: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: 'hidden' as const,
+    shadowColor: isDark ? colors.interaction.shadow : '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDark ? 0.3 : 0.1,
     shadowRadius: 3,
     elevation: 3,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
+    fontWeight: '600' as const,
+    color: colors.text.primary,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.background.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.interaction.border,
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.interaction.divider,
   },
   settingItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     flex: 1,
   },
   iconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginRight: 12,
   },
   settingTextContainer: {
@@ -294,13 +302,13 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
+    fontWeight: '500' as const,
+    color: colors.text.primary,
     marginBottom: 2,
   },
   settingSubtitle: {
     fontSize: 12,
-    color: '#666',
+    color: colors.text.secondary,
     lineHeight: 16,
   },
 });

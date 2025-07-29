@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { TodoColors } from '@/constants/Colors';
 import { CategoryManager } from './CategoryManager';
 import { Todo } from '@/types/Todo';
+import { useTheme } from '@/hooks/useTheme';
 import * as Notifications from 'expo-notifications';
 import { aiService } from '@/lib/ai/AIService';
 import { recurringRulesApi } from '@/lib/supabase';
@@ -22,6 +23,7 @@ interface AddTodoProps {
 
 export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAddAISubtasks, mainTodos = [] }) => {
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
   const [text, setText] = useState('');
   const [importance, setImportance] = useState(3); // Default importance level (1-5)
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -349,14 +351,14 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background.app }]}>
       {/* Subtask 모드 상태 표시 */}
       {isSubtaskMode && (
-        <View style={styles.subtaskModeHeader}>
-          <MaterialIcons name="subdirectory-arrow-right" size={16} color={TodoColors.primary} />
-          <Text style={styles.subtaskModeText}>Subtask 모드</Text>
+        <View style={[styles.subtaskModeHeader, { backgroundColor: colors.primary + '15' }]}>
+          <MaterialIcons name="subdirectory-arrow-right" size={16} color={colors.primary} />
+          <Text style={[styles.subtaskModeText, { color: colors.primary }]}>Subtask 모드</Text>
           {selectedParentId && (
-            <Text style={styles.selectedParentText}>
+            <Text style={[styles.selectedParentText, { color: colors.text.secondary }]}>
               → {getSelectedParentName()}
             </Text>
           )}
@@ -365,9 +367,9 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       
       <View style={styles.inputRow}>
         <TextInput
-          style={[styles.input, isSubtaskMode && styles.subtaskInput]}
+          style={[styles.input, { backgroundColor: colors.background.input, borderColor: colors.interaction.border, color: colors.text.primary }, isSubtaskMode && [styles.subtaskInput, { borderColor: colors.primary }]]}
           placeholder={isSubtaskMode ? "Add a subtask" : "Add a task"}
-          placeholderTextColor="#999999"
+          placeholderTextColor={colors.text.tertiary}
           value={text}
           onChangeText={setText}
           onSubmitEditing={handleAddTodo}
@@ -376,26 +378,26 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
         
         {/* AI 생성 버튼 */}
         <TouchableOpacity
-          style={[styles.aiButton, isAIGenerating && styles.aiButtonLoading]}
+          style={[styles.aiButton, { backgroundColor: colors.background.input, borderColor: colors.primary }, isAIGenerating && styles.aiButtonLoading]}
           onPress={handleAIGenerate}
           disabled={isAIGenerating || !text.trim()}
         >
           <MaterialIcons 
             name={isAIGenerating ? "hourglass-empty" : "auto-awesome"} 
             size={20} 
-            color={isAIGenerating || !text.trim() ? TodoColors.text.secondary : TodoColors.primary} 
+            color={isAIGenerating || !text.trim() ? colors.text.secondary : colors.primary} 
           />
         </TouchableOpacity>
         
         {/* Subtask 모드 토글 버튼 */}
         <TouchableOpacity
-          style={[styles.subtaskToggle, isSubtaskMode && styles.subtaskToggleActive]}
+          style={[styles.subtaskToggle, { backgroundColor: colors.background.input, borderColor: colors.primary }, isSubtaskMode && [styles.subtaskToggleActive, { backgroundColor: colors.primary }]]}
           onPress={toggleSubtaskMode}
         >
           <MaterialIcons 
             name={isSubtaskMode ? "close" : "account-tree"} 
             size={20} 
-            color={isSubtaskMode ? TodoColors.text.light : TodoColors.primary} 
+            color={isSubtaskMode ? colors.text.light : colors.primary} 
           />
         </TouchableOpacity>
       </View>
@@ -404,33 +406,34 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       {isSubtaskMode && (
         <View style={styles.parentSelectorContainer}>
           <TouchableOpacity
-            style={styles.parentSelector}
+            style={[styles.parentSelector, { backgroundColor: colors.background.card, borderColor: colors.interaction.border }]}
             onPress={() => setShowParentSelector(!showParentSelector)}
           >
-            <Text style={styles.parentSelectorText}>
+            <Text style={[styles.parentSelectorText, { color: colors.text.primary }]}>
               {selectedParentId ? getSelectedParentName() : "부모 태스크 선택"}
             </Text>
             <MaterialIcons 
               name={showParentSelector ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
               size={20} 
-              color={TodoColors.text.secondary} 
+              color={colors.text.secondary} 
             />
           </TouchableOpacity>
           
           {showParentSelector && (
-            <View style={styles.parentList}>
+            <View style={[styles.parentList, { backgroundColor: colors.background.card, borderColor: colors.interaction.border }]}>
               {mainTodos.map((todo) => (
                 <TouchableOpacity
                   key={todo.id}
                   style={[
                     styles.parentItem,
-                    selectedParentId === todo.id && styles.selectedParentItem
+                    selectedParentId === todo.id && [styles.selectedParentItem, { backgroundColor: colors.primary + '20' }]
                   ]}
                   onPress={() => selectParent(todo.id)}
                 >
                   <Text style={[
                     styles.parentItemText,
-                    selectedParentId === todo.id && styles.selectedParentItemText
+                    { color: colors.text.primary },
+                    selectedParentId === todo.id && [styles.selectedParentItemText, { color: colors.primary }]
                   ]}>
                     {todo.text}
                   </Text>
@@ -443,7 +446,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       )}
       
       <View style={styles.importanceContainer}>
-        <Text style={styles.importanceLabel}>Priority :</Text>
+        <Text style={[styles.importanceLabel, { color: colors.text.secondary }]}>Priority :</Text>
         <View style={styles.importanceLevelsWrapper}>
           <View style={styles.importanceLevels}>
             {[1, 2, 3, 4, 5].map((level) => (
@@ -451,12 +454,13 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
                 key={level}
                 style={[
                   styles.importanceButton,
-                  importance === level && styles.selectedImportance,
+                  importance === level && [styles.selectedImportance, { backgroundColor: colors.primary }],
                 ]}
                 onPress={() => handleImportanceChange(level)}>
                 <Text 
                   style={[
                     styles.importanceText,
+                    { color: colors.text.secondary },
                     importance === level && styles.selectedImportanceText
                   ]}>
                   {level}
@@ -475,8 +479,8 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       <TouchableOpacity 
         style={styles.dueDateButton}
         onPress={() => setShowDateModal(true)}>
-        <MaterialIcons name="event" size={18} color={TodoColors.text.dark} />
-        <Text style={styles.dueDateText}>
+        <MaterialIcons name="event" size={18} color={colors.text.primary} />
+        <Text style={[styles.dueDateText, { color: colors.text.primary }]}>
           {dueDate ? formatDate(dueDate) : '마감일 설정'}
         </Text>
       </TouchableOpacity>
@@ -492,30 +496,30 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
           activeOpacity={1} 
           onPress={() => setShowDateModal(false)}
         >
-          <View style={styles.datePickerContainer} onStartShouldSetResponder={() => true}>
-            <Text style={styles.datePickerTitle}>마감일 선택</Text>
+          <View style={[styles.datePickerContainer, { backgroundColor: colors.background.card }]} onStartShouldSetResponder={() => true}>
+            <Text style={[styles.datePickerTitle, { color: colors.text.primary }]}>마감일 선택</Text>
             
             <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(0)}>
-              <Text style={styles.dateOptionText}>오늘</Text>
+              <Text style={[styles.dateOptionText, { color: colors.text.primary }]}>오늘</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(1)}>
-              <Text style={styles.dateOptionText}>내일</Text>
+              <Text style={[styles.dateOptionText, { color: colors.text.primary }]}>내일</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(7)}>
-              <Text style={styles.dateOptionText}>다음 주</Text>
+              <Text style={[styles.dateOptionText, { color: colors.text.primary }]}>다음 주</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.dateOption} onPress={() => selectDate(30)}>
-              <Text style={styles.dateOptionText}>한 달 후</Text>
+              <Text style={[styles.dateOptionText, { color: colors.text.primary }]}>한 달 후</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={[styles.dateOption, styles.clearOption]} onPress={clearDueDate}>
               <Text style={styles.clearOptionText}>마감일 없음</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowDateModal(false)}>
+            <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.primary }]} onPress={() => setShowDateModal(false)}>
               <Text style={styles.closeButtonText}>닫기</Text>
             </TouchableOpacity>
           </View>
@@ -534,25 +538,25 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
           activeOpacity={1} 
           onPress={() => setShowAIModal(false)}
         >
-          <View style={styles.aiModalContainer} onStartShouldSetResponder={() => true}>
+          <View style={[styles.aiModalContainer, { backgroundColor: colors.background.card }]} onStartShouldSetResponder={() => true}>
             <View style={styles.aiModalHeader}>
-              <MaterialIcons name="auto-awesome" size={24} color={TodoColors.primary} />
-              <Text style={styles.aiModalTitle}>AI SubTask 제안</Text>
+              <MaterialIcons name="auto-awesome" size={24} color={colors.primary} />
+              <Text style={[styles.aiModalTitle, { color: colors.text.primary }]}>AI SubTask 제안</Text>
               <TouchableOpacity onPress={() => setShowAIModal(false)}>
-                <MaterialIcons name="close" size={24} color={TodoColors.text.secondary} />
+                <MaterialIcons name="close" size={24} color={colors.text.secondary} />
               </TouchableOpacity>
             </View>
             
-            <Text style={styles.aiModalMainTask}>메인 태스크: {text}</Text>
+            <Text style={[styles.aiModalMainTask, { color: colors.text.primary, backgroundColor: colors.background.surface }]}>메인 태스크: {text}</Text>
             
             <ScrollView style={styles.aiSuggestionsList}>
               {aiSuggestions.map((suggestion, index) => (
-                <View key={index} style={styles.aiSuggestionItem}>
+                <View key={index} style={[styles.aiSuggestionItem, { backgroundColor: colors.background.surface, borderColor: colors.interaction.border }]}>
                   <View style={styles.aiSuggestionHeader}>
                     <View style={styles.aiSuggestionTextContainer}>
-                      <Text style={styles.aiSuggestionText}>{suggestion.text}</Text>
+                      <Text style={[styles.aiSuggestionText, { color: colors.text.primary }]}>{suggestion.text}</Text>
                       {suggestion.isRecurring && (
-                        <View style={styles.recurringBadge}>
+                        <View style={[styles.recurringBadge, { backgroundColor: colors.primary }]}>
                           <MaterialIcons name="repeat" size={14} color="#fff" />
                           <Text style={styles.recurringText}>
                             {suggestion.recurrenceType === 'daily' ? '매일' : 
@@ -562,11 +566,11 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
                       )}
                     </View>
                     <View style={styles.aiSuggestionMeta}>
-                      <Text style={styles.aiSuggestionImportance}>
+                      <Text style={[styles.aiSuggestionImportance, { color: colors.primary }]}>
                         중요도: {suggestion.importance || 3}
                       </Text>
                       {suggestion.estimatedDuration && (
-                        <Text style={styles.aiSuggestionDuration}>
+                        <Text style={[styles.aiSuggestionDuration, { color: colors.text.secondary }]}>
                           예상시간: {suggestion.estimatedDuration}
                         </Text>
                       )}
@@ -578,14 +582,14 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
             
             <View style={styles.aiModalActions}>
               <TouchableOpacity 
-                style={styles.aiModalRejectButton}
+                style={[styles.aiModalRejectButton, { backgroundColor: colors.background.surface }]}
                 onPress={() => setShowAIModal(false)}
               >
-                <Text style={styles.aiModalRejectText}>취소</Text>
+                <Text style={[styles.aiModalRejectText, { color: colors.text.secondary }]}>취소</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.aiModalAcceptButton, isAIGenerating && styles.aiModalAcceptButtonLoading]}
+                style={[styles.aiModalAcceptButton, { backgroundColor: colors.primary }, isAIGenerating && [styles.aiModalAcceptButtonLoading, { backgroundColor: colors.text.secondary }]]}
                 onPress={handleAcceptAISuggestions}
                 disabled={isAIGenerating}
               >
@@ -599,10 +603,10 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
       </Modal>
       
       <TouchableOpacity 
-        style={styles.addButton} 
+        style={[styles.addButton, { backgroundColor: colors.primary }]} 
         onPress={handleAddTodo}
         disabled={!text.trim()}>
-        <MaterialIcons name="add" size={24} color={TodoColors.text.light} />
+        <MaterialIcons name="add" size={24} color={colors.text.light} />
       </TouchableOpacity>
     </View>
   );

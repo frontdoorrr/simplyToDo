@@ -7,6 +7,7 @@ import { TodoList } from '@/components/TodoList';
 import { RecurringRuleManager } from '@/components/RecurringRuleManager';
 import { Todo, createTodo, Category, DefaultCategories } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { todosApi, categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { resetApp } from '@/lib/appReset';
@@ -33,6 +34,14 @@ export default function HomeScreen() {
   const [filterState, setFilterState] = useState<FilterState>({ option: 'all', categoryId: null });
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRecurringManager, setShowRecurringManager] = useState(false);
+
+  // 테마 시스템 사용 (추후 개선 예정)
+  const { colors, isDark } = useTheme();
+  
+  // 테마 변경 감지 및 강제 리렌더링
+  useEffect(() => {
+    console.log('🎨 Home Screen - Theme changed:', { isDark, appBg: colors.background.app });
+  }, [isDark, colors]);
 
   // Supabase로부터 데이터 로드
   const { user, signOut } = useAuth();
@@ -513,11 +522,11 @@ export default function HomeScreen() {
   }, [todos]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={TodoColors.background.app} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.app }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background.app} />
       
-      <View style={styles.header}>
-        <Text style={styles.title}>ToDoAI</Text>
+      <View style={[styles.header, { backgroundColor: colors.background.app, borderBottomColor: colors.interaction.border }]}>
+        <Text style={[styles.title, { color: colors.text.primary }]}>ToDoAI</Text>
         {user && (
           <View style={styles.headerActions}>
             {/* 로그아웃 버튼 - Supabase 세션 종료 및 로그인 화면으로 이동 */}
@@ -525,7 +534,7 @@ export default function HomeScreen() {
               onPress={() => signOut()}
               style={styles.logoutButton}
             >
-              <MaterialIcons name="logout" size={24} color={TodoColors.text.primary} />
+              <MaterialIcons name="logout" size={24} color={colors.text.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -534,27 +543,27 @@ export default function HomeScreen() {
       {/* 간단한 통계 위젯 */}
       {todos.length > 0 && (
         <TouchableOpacity 
-          style={styles.statsWidget} 
+          style={[styles.statsWidget, { backgroundColor: colors.background.card }]} 
           onPress={() => router.push('/statistics')}
         >
           <View style={styles.statsWidgetContent}>
             <View style={styles.statsMainInfo}>
-              <Text style={styles.statsTitle}>전체 진행상황</Text>
-              <Text style={styles.statsCompletionRate}>{quickStats.completionRate}% 완료</Text>
+              <Text style={[styles.statsTitle, { color: colors.text.secondary }]}>전체 진행상황</Text>
+              <Text style={[styles.statsCompletionRate, { color: colors.primary }]}>{quickStats.completionRate}% 완료</Text>
             </View>
             <View style={styles.statsDetails}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{quickStats.dueToday}</Text>
-                <Text style={styles.statLabel}>오늘 마감</Text>
+                <Text style={[styles.statNumber, { color: colors.text.primary }]}>{quickStats.dueToday}</Text>
+                <Text style={[styles.statLabel, { color: colors.text.secondary }]}>오늘 마감</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={[styles.statNumber, quickStats.overdue > 0 && { color: '#FF5722' }]}>
+                <Text style={[styles.statNumber, { color: colors.text.primary }, quickStats.overdue > 0 && { color: colors.status.error }]}>
                   {quickStats.overdue}
                 </Text>
-                <Text style={styles.statLabel}>지연</Text>
+                <Text style={[styles.statLabel, { color: colors.text.secondary }]}>지연</Text>
               </View>
               <View style={styles.statItem}>
-                <MaterialIcons name="arrow-forward" size={20} color="#666" />
+                <MaterialIcons name="arrow-forward" size={20} color={colors.text.tertiary} />
               </View>
             </View>
           </View>
@@ -569,14 +578,14 @@ export default function HomeScreen() {
         onRequestClose={() => setShowSortModal(false)}
       >
         <Pressable 
-          style={styles.modalOverlay} 
+          style={[styles.modalOverlay, { backgroundColor: colors.interaction.overlay }]} 
           onPress={() => setShowSortModal(false)}
         >
           <View 
-            style={styles.modalContent}
+            style={[styles.modalContent, { backgroundColor: colors.background.modal }]}
             onStartShouldSetResponder={() => true}
           >
-            <Text style={styles.modalTitle}>정렬 옵션</Text>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>정렬 옵션</Text>
             
             <TouchableOpacity 
               style={[styles.sortOption, sortOption === 'none' && styles.selectedOption]}

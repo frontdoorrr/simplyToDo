@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { TodoList } from '@/components/TodoList';
 import { Todo, Category } from '@/types/Todo';
 import { TodoColors } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { useIsFocused } from '@react-navigation/native';
 import { todosApi, categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +17,9 @@ export default function CompletedScreen() {
   const [loading, setLoading] = useState(false);
   const isFocused = useIsFocused();
   const { user } = useAuth();
+  
+  // 테마 시스템 사용 (추후 개선 예정)
+  const { colors, isDark } = useTheme();
   
   const ITEMS_PER_PAGE = 10;
 
@@ -118,12 +122,12 @@ export default function CompletedScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <Text style={styles.title}>Completed Tasks</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.app }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background.app} />
+      <View style={[styles.header, { backgroundColor: colors.background.card, borderBottomColor: colors.interaction.border }]}>
+        <Text style={[styles.title, { color: colors.text.primary }]}>Completed Tasks</Text>
         {totalPages > 1 && (
-          <Text style={styles.pageInfo}>
+          <Text style={[styles.pageInfo, { color: colors.text.secondary }]}>
             {currentPage} / {totalPages}
           </Text>
         )}
@@ -139,16 +143,16 @@ export default function CompletedScreen() {
       />
       
       {totalPages > 1 && (
-        <View style={styles.pagination}>
+        <View style={[styles.pagination, { backgroundColor: colors.background.card, borderTopColor: colors.interaction.border }]}>
           <TouchableOpacity 
             style={[styles.pageButton, currentPage === 1 && styles.disabledButton]}
             onPress={handlePrevPage}
             disabled={currentPage === 1}
           >
-            <MaterialIcons name="chevron-left" size={24} color={currentPage === 1 ? '#ccc' : TodoColors.primary} />
+            <MaterialIcons name="chevron-left" size={24} color={currentPage === 1 ? colors.text.tertiary : colors.primary} />
           </TouchableOpacity>
           
-          <Text style={styles.pageText}>
+          <Text style={[styles.pageText, { color: colors.text.secondary }]}>
             {startIndex + 1}-{Math.min(endIndex, todos.length)} of {todos.length}
           </Text>
           
@@ -157,7 +161,7 @@ export default function CompletedScreen() {
             onPress={handleNextPage}
             disabled={currentPage === totalPages}
           >
-            <MaterialIcons name="chevron-right" size={24} color={currentPage === totalPages ? '#ccc' : TodoColors.primary} />
+            <MaterialIcons name="chevron-right" size={24} color={currentPage === totalPages ? colors.text.tertiary : colors.primary} />
           </TouchableOpacity>
         </View>
       )}

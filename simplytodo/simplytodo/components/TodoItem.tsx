@@ -6,6 +6,7 @@ import { TodoColors } from '@/constants/Colors';
 import { Category, DefaultCategories, Todo } from '@/types/Todo';
 import { categoriesApi } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/hooks/useTheme';
 import { SubtaskList } from './SubtaskList';
 import { logger } from '@/lib/logger';
 
@@ -54,6 +55,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const [resolvedCategory, setResolvedCategory] = useState<Category | undefined>(category);
   
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
   
   // CategoryId를 사용해서 카테고리를 로드하는 기능
   useEffect(() => {
@@ -205,7 +207,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const renderRightActions = () => {
     return (
       <TouchableOpacity 
-        style={[styles.actionButton, { backgroundColor: TodoColors.delete }]} 
+        style={[styles.actionButton, { backgroundColor: colors.delete }]} 
         onPress={handleDelete}
       >
         <MaterialIcons name="delete" size={24} color="white" />
@@ -217,7 +219,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
   const renderLeftActions = () => {
     return (
       <TouchableOpacity 
-        style={[styles.actionButton, { backgroundColor: TodoColors.complete }]} 
+        style={[styles.actionButton, { backgroundColor: colors.complete }]} 
         onPress={handleComplete}
       >
         <MaterialIcons name="check" size={24} color="white" />
@@ -263,14 +265,14 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         <View
           style={[
             styles.container,
-            { backgroundColor: completed ? TodoColors.completed.background : TodoColors.background.card },
+            { backgroundColor: completed ? colors.completed.background : colors.background.card },
             !completed && { borderLeftColor: getBorderColor(importance) },
             completed && styles.completedContainer,
             getHierarchyStyle(),
           ]}>
           <View style={styles.contentContainer}>
             <View style={styles.textContainer}>
-              <Text style={[styles.text, completed && styles.completedText]}>{text}</Text>
+              <Text style={[styles.text, { color: colors.text.primary }, completed && styles.completedText]}>{text}</Text>
               
               {/* Subtask 진행률 표시 */}
               {hasSubtasks && subtaskProgress && (
@@ -304,7 +306,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               {resolvedCategory && (
                 <View style={[styles.categoryTag, { backgroundColor: resolvedCategory.color + '20', borderColor: resolvedCategory.color }]}>
                   <View style={[styles.categoryDot, { backgroundColor: resolvedCategory.color }]} />
-                  <Text style={[styles.categoryText, { color: resolvedCategory.color }]}>
+                  <Text style={[styles.categoryText, { color: resolvedCategory.color || colors.text.secondary }]}>
                     {resolvedCategory.name}
                   </Text>
                 </View>
@@ -312,7 +314,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               
               {/* 완료 날짜 표시 (completed 탭에서만) */}
               {showCompletedDate && completed && completedAt && (
-                <Text style={styles.completedDate}>
+                <Text style={[styles.completedDate, { color: colors.complete }]}>
                   {formatCompletedDate()}
                 </Text>
               )}
@@ -333,7 +335,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
             </View>
           </View>
           {completed && (
-            <MaterialIcons name="check" size={20} color={TodoColors.icon.check} style={styles.checkIcon} />
+            <MaterialIcons name="check" size={20} color={colors.icon.check} style={styles.checkIcon} />
           )}
         </View>
       </Swipeable>

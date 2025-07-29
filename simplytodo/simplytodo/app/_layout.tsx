@@ -1,14 +1,15 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/hooks/useTheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ThemedStatusBar } from '@/components/themed/ThemedStatusBar';
 import { ActivityIndicator, View } from 'react-native';
 import { TodoColors } from '@/constants/Colors';
 
@@ -43,8 +44,33 @@ function RootNavigation() {
   );
 }
 
+// Loading screen component that can be used before theme context is available
+function LoadingScreen() {
+  return (
+    <View style={{ 
+      flex: 1, 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      backgroundColor: TodoColors.background.app 
+    }}>
+      <ActivityIndicator size="large" color={TodoColors.primary} />
+    </View>
+  );
+}
+
+// Navigation wrapper that uses our theme system
+function ThemedNavigation() {
+  const { isDark } = useTheme();
+  
+  return (
+    <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      <RootNavigation />
+      <ThemedStatusBar />
+    </NavigationThemeProvider>
+  );
+}
+
 function RootLayoutContent() {
-  const colorScheme = useColorScheme();
   const { loading } = useAuth();
   const [loaded] = useFonts({
     SpaceMono: require('@/assets/fonts/SpaceMono-Regular.ttf'),
@@ -65,20 +91,15 @@ function RootLayoutContent() {
   }, []);
 
   if (!loaded || loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: TodoColors.background.app }}>
-        <ActivityIndicator size="large" color={TodoColors.primary} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <RootNavigation />
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </GestureHandlerRootView>
+    <ThemeProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemedNavigation />
+      </GestureHandlerRootView>
+    </ThemeProvider>
   );
 }
 

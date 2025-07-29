@@ -1,13 +1,17 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Legacy color definitions - now integrated with the new theme system.
+ * For new components, use the ThemeContext instead of these static colors.
+ * @deprecated Use ThemeContext and themed components for new features
  */
 
-// 기존 색상
+import { lightTheme, darkTheme } from '@/themes/colors';
+
+// 기존 색상 (하위 호환성 유지)
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
-// SimplyToDo 앱 색상 - 이미지 참고
+// SimplyToDo 앱 색상 - 테마 시스템으로 마이그레이션됨
+// @deprecated - Use useTheme().colors instead
 export const TodoColors = {
   // 기본 테마 색상
   primary: '#4caf50',  // 기본 녹색
@@ -57,6 +61,8 @@ export const TodoColors = {
   }
 };
 
+// Legacy Colors - 하위 호환성을 위해 유지
+// @deprecated - Use useTheme().colors instead
 export const Colors = {
   light: {
     text: '#11181C',
@@ -74,4 +80,52 @@ export const Colors = {
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
   },
+};
+
+// 새로운 테마 시스템과의 연결점
+// 테마 컨텍스트 없이 색상이 필요한 경우를 위한 헬퍼
+export const getThemeColors = (isDark: boolean = false) => {
+  return isDark ? darkTheme : lightTheme;
+};
+
+// TodoColors를 현재 테마에 맞게 동적으로 업데이트하는 함수
+// 이것은 임시 해결책입니다. 모든 컴포넌트를 테마 시스템으로 마이그레이션하는 것이 최종 목표입니다.
+export const updateTodoColorsForTheme = (isDark: boolean) => {
+  const themeColors = getThemeColors(isDark);
+  
+  console.log(`🎨 Updating TodoColors for theme: ${isDark ? 'dark' : 'light'}`);
+  
+  // TodoColors의 값들을 현재 테마에 맞게 완전히 교체
+  TodoColors.primary = themeColors.primary;
+  TodoColors.background.app = themeColors.background.app;
+  TodoColors.background.card = themeColors.background.card;
+  TodoColors.background.input = themeColors.background.input;
+  TodoColors.background.subtask = themeColors.background.subtask;
+  
+  TodoColors.text.primary = themeColors.text.primary;
+  TodoColors.text.secondary = themeColors.text.secondary;
+  TodoColors.text.tertiary = themeColors.text.tertiary;
+  TodoColors.text.light = themeColors.text.light;
+  TodoColors.text.dark = themeColors.text.dark;
+  
+  TodoColors.button.primary = themeColors.button.primary;
+  TodoColors.button.text = themeColors.button.text;
+  
+  TodoColors.icon.check = themeColors.icon.check;
+  
+  TodoColors.delete = themeColors.delete;
+  TodoColors.complete = themeColors.complete;
+  
+  TodoColors.completed.background = themeColors.completed.background;
+  TodoColors.completed.opacity = themeColors.completed.opacity;
+  
+  // 중요도별 색상도 업데이트
+  TodoColors.importance.baseColor = themeColors.importance.baseColor;
+  TodoColors.importance.darkColor = themeColors.importance.darkColor;
+  
+  console.log(`🎨 TodoColors updated:`, {
+    app: TodoColors.background.app,
+    card: TodoColors.background.card,
+    textPrimary: TodoColors.text.primary
+  });
 };

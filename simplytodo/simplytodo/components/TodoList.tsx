@@ -5,6 +5,7 @@ import { TodoItem } from './TodoItem';
 import { TodoColors } from '@/constants/Colors';
 import { Todo, Category, findCategoryById } from '@/types/Todo';
 import { subtaskUtils } from '@/lib/supabase';
+import { useTheme } from '@/hooks/useTheme';
 
 interface TodoListProps {
   todos: Todo[];
@@ -27,10 +28,11 @@ export const TodoList: React.FC<TodoListProps> = ({
   showCompletedDate = false,
   showAllTodos = false
 }) => {
+  const { colors } = useTheme();
   if (todos.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No tasks yet. Add a new task above!</Text>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.background.app }]}>
+        <Text style={[styles.emptyText, { color: colors.text.secondary }]}>No tasks yet. Add a new task above!</Text>
       </View>
     );
   }
@@ -80,7 +82,7 @@ export const TodoList: React.FC<TodoListProps> = ({
           </Animated.View>
         );
       }}
-      style={styles.list}
+      style={[styles.list, { backgroundColor: colors.background.app }]}
       // Layout animation 제거 - 메모리 오버헤드와 크래시 방지
     />
   );
