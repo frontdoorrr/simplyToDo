@@ -460,7 +460,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
                 <Text 
                   style={[
                     styles.importanceText,
-                    { color: colors.text.secondary },
+                    { color: importance === level ? colors.button.text : colors.text.secondary },
                     importance === level && styles.selectedImportanceText
                   ]}>
                   {level}
@@ -516,11 +516,11 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
             </TouchableOpacity>
             
             <TouchableOpacity style={[styles.dateOption, styles.clearOption]} onPress={clearDueDate}>
-              <Text style={styles.clearOptionText}>마감일 없음</Text>
+              <Text style={[styles.clearOptionText, { color: colors.status?.error || '#ff6b6b' }]}>마감일 없음</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.primary }]} onPress={() => setShowDateModal(false)}>
-              <Text style={styles.closeButtonText}>닫기</Text>
+              <Text style={[styles.closeButtonText, { color: colors.button.text }]}>닫기</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -557,8 +557,8 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
                       <Text style={[styles.aiSuggestionText, { color: colors.text.primary }]}>{suggestion.text}</Text>
                       {suggestion.isRecurring && (
                         <View style={[styles.recurringBadge, { backgroundColor: colors.primary }]}>
-                          <MaterialIcons name="repeat" size={14} color="#fff" />
-                          <Text style={styles.recurringText}>
+                          <MaterialIcons name="repeat" size={14} color={colors.button.text} />
+                          <Text style={[styles.recurringText, { color: colors.button.text }]}>
                             {suggestion.recurrenceType === 'daily' ? '매일' : 
                              suggestion.recurrenceType === 'weekly' ? '매주' : '반복'}
                           </Text>
@@ -593,7 +593,7 @@ export const AddTodo: React.FC<AddTodoProps> = ({ onAddTodo, onAddSubtask, onAdd
                 onPress={handleAcceptAISuggestions}
                 disabled={isAIGenerating}
               >
-                <Text style={styles.aiModalAcceptText}>
+                <Text style={[styles.aiModalAcceptText, { color: colors.button.text }]}>
                   {isAIGenerating ? '처리 중...' : '적용하기'}
                 </Text>
               </TouchableOpacity>
@@ -690,7 +690,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   clearOptionText: {
-    color: '#ff6b6b',
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -701,7 +700,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   closeButtonText: {
-    color: '#fff',
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -817,10 +815,8 @@ const styles = StyleSheet.create({
   },
   importanceText: {
     fontSize: 14,
-    color: '#555',
   },
   selectedImportanceText: {
-    color: '#000000',
     fontWeight: 'bold',
   },
   addButton: {
@@ -913,7 +909,6 @@ const styles = StyleSheet.create({
   },
   recurringText: {
     fontSize: 11,
-    color: '#fff',
     fontWeight: '600',
     marginLeft: 2,
   },
@@ -959,7 +954,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   aiModalAcceptText: {
-    color: '#fff',
     fontWeight: 'bold',
   },
 });

@@ -265,14 +265,21 @@ export const TodoItem: React.FC<TodoItemProps> = ({
         <View
           style={[
             styles.container,
-            { backgroundColor: completed ? colors.completed.background : colors.background.card },
+            { 
+              backgroundColor: completed ? colors.completed.background : colors.background.card,
+              borderBottomColor: colors.interaction?.divider || (isDark ? '#404040' : '#f0f0f0'),
+            },
             !completed && { borderLeftColor: getBorderColor(importance) },
             completed && styles.completedContainer,
             getHierarchyStyle(),
           ]}>
           <View style={styles.contentContainer}>
             <View style={styles.textContainer}>
-              <Text style={[styles.text, { color: colors.text.primary }, completed && styles.completedText]}>{text}</Text>
+              <Text style={[
+                styles.text, 
+                { color: completed ? colors.text.secondary : colors.text.primary }, 
+                completed && styles.completedText
+              ]}>{text}</Text>
               
               {/* Subtask 진행률 표시 */}
               {hasSubtasks && subtaskProgress && (
@@ -314,7 +321,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
               
               {/* 완료 날짜 표시 (completed 탭에서만) */}
               {showCompletedDate && completed && completedAt && (
-                <Text style={[styles.completedDate, { color: colors.complete }]}>
+                <Text style={[styles.completedDate, { color: colors.status?.success || colors.complete }]}>
                   {formatCompletedDate()}
                 </Text>
               )}
@@ -324,8 +331,9 @@ export const TodoItem: React.FC<TodoItemProps> = ({
                 <Text 
                   style={[
                     styles.dueDate, 
-                    formattedDueDate.isPast && styles.pastDueDate,
-                    formattedDueDate.isToday && styles.todayDueDate,
+                    { color: colors.text.secondary },
+                    formattedDueDate.isPast && { color: colors.status?.error || '#ff6b6b' },
+                    formattedDueDate.isToday && { color: colors.status?.warning || '#ff9800' },
                     completed && styles.completedDueDate
                   ]}
                 >
@@ -362,7 +370,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -436,13 +443,6 @@ const styles = StyleSheet.create({
   },
   dueDate: {
     fontSize: 12,
-    color: TodoColors.text.secondary,
-  },
-  pastDueDate: {
-    color: '#ff6b6b', // 지난 마감일은 빨간색으로 표시
-  },
-  todayDueDate: {
-    color: '#ff9800', // 오늘 마감일은 주황색으로 표시
   },
   completedDueDate: {
     textDecorationLine: 'line-through',
@@ -450,21 +450,17 @@ const styles = StyleSheet.create({
   },
   completedDate: {
     fontSize: 12,
-    color: '#4CAF50', // 완료 날짜는 녹색으로 표시
     marginRight: 8,
   },
   text: {
     fontSize: 16,
-    color: TodoColors.text.primary,
     flex: 1,
   },
   completedContainer: {
-    backgroundColor: TodoColors.completed.background,
-    opacity: TodoColors.completed.opacity,
+    opacity: 0.7,
   },
   completedText: {
     textDecorationLine: 'line-through',
-    color: TodoColors.text.secondary,
   },
   checkIcon: {
     marginLeft: 8,

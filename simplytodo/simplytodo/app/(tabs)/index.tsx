@@ -641,7 +641,7 @@ export default function HomeScreen() {
               style={styles.closeButton}
               onPress={() => setShowSortModal(false)}
             >
-              <Text style={styles.closeButtonText}>닫기</Text>
+              <Text style={[styles.closeButtonText, { color: colors.button.text }]}>닫기</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -750,7 +750,7 @@ export default function HomeScreen() {
               style={styles.closeButton}
               onPress={() => setShowFilterModal(false)}
             >
-              <Text style={styles.closeButtonText}>닫기</Text>
+              <Text style={[styles.closeButtonText, { color: colors.button.text }]}>닫기</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -966,7 +966,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeButtonText: {
-    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -1029,13 +1028,11 @@ const styles = StyleSheet.create({
   },
   statsTitle: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 4,
   },
   statsCompletionRate: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#4CAF50',
   },
   statsDetails: {
     flexDirection: 'row',
@@ -1048,11 +1045,9 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
   },
   statLabel: {
     fontSize: 10,
-    color: '#666',
     marginTop: 2,
   },
 });
